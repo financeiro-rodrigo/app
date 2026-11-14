@@ -307,7 +307,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14t';
+const APP_VER='2026-11-14u';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -704,7 +704,7 @@ async function readExtrato(file){
     prog('Abrindo o arquivo…');
     const ano=localToday().slice(0,4);
     const c=await fileContent(file);
-    const prompt=`Extraia TODAS as movimentações deste extrato bancário (${bank}). Responda SOMENTE JSON: {"movimentos":[{"data":"YYYY-MM-DD","descricao":"texto","valor":número positivo em reais,"tipo":"entrada"|"saida"}]}. Regras: (1) em "descricao" junte o histórico e o nome do favorecido/pagador quando houver (ex.: "CRED PIX CHAVE - Anna Thereza Novae"); (2) quando o valor vier com C ou D no final, C = entrada (crédito) e D = saída (débito); (3) IGNORE linhas de saldo (SALDO ANTERIOR, SALDO DIA, SALDO DO DIA, SALDO FINAL) e o saldo de cada linha, use só a coluna de valor; (4) mantenha linhas de tarifa (ex.: TAR PIX), IOF e devoluções como movimentações próprias; (5) leia todas as linhas das imagens, sem repetir nem pular nenhuma; (6) se o ano não aparecer, use ${ano}. Não invente linhas.`;
+    const prompt=`Extraia TODAS as movimentações deste extrato bancário (${bank}). Responda SOMENTE JSON: {"movimentos":[{"data":"YYYY-MM-DD","descricao":"texto","valor":número positivo em reais,"tipo":"entrada"|"saida","saldo":número ou null}]}. Regras: (1) em "descricao" junte o histórico e o nome do favorecido/pagador quando houver (ex.: "CRED PIX CHAVE - Anna Thereza Novae"); (2) quando o valor vier com C ou D no final, C = entrada (crédito) e D = saída (débito); (3) IGNORE as linhas que são só de saldo (SALDO ANTERIOR, SALDO DIA, SALDO DO DIA, SALDO FINAL), não as liste; em "valor" use só a coluna de valor e em "saldo" copie a coluna Saldo da própria linha (número em reais; negativo quando terminar em D; null se o extrato não tiver saldo por linha); copie cada número exatamente como está impresso, sem arredondar; (4) mantenha linhas de tarifa (ex.: TAR PIX), IOF e devoluções como movimentações próprias; (5) leia todas as linhas das imagens, sem repetir nem pular nenhuma; (6) se o ano não aparecer, use ${ano}. Não invente linhas.`;
     const lotes=c.images.length>2?c.images.reduce((a,im,i)=>{(a[Math.floor(i/2)]=a[Math.floor(i/2)]||[]).push(im);return a},[]):[c.images];
     let movs=[];
     for(let i=0;i<lotes.length;i++){
@@ -712,14 +712,35 @@ async function readExtrato(file){
       const r=await askOpenAI(prompt,{text:c.text,images:lotes[i]});
       movs=movs.concat(r.movimentos||[]);
     }
-    const rows=movs.filter(m=>m.data&&m.valor).map(m=>({date:m.data,desc:String(m.descricao||'').trim(),amount:Math.abs(+m.valor),dir:m.tipo==='entrada'?'in':'out'}));
+    const rows=movs.filter(m=>m.data&&m.valor).map(m=>({date:m.data,desc:String(m.descricao||'').trim(),amount:Math.abs(+m.valor),dir:m.tipo==='entrada'?'in':'out',saldo:(m.saldo===null||m.saldo===undefined||m.saldo==='')?null:+m.saldo}));
+    const nCorr=conferirSaldos(rows);
     if(!rows.length){modal('<h3>Nada encontrado</h3><p>A IA leu o arquivo mas não achou movimentações. Tente um PDF só com o período desejado, ou um print mais nítido.</p><button class="b" data-a="close">Entendi</button>');return}
-    previewImport(bank,file.name,rows);
+    previewImport(bank,file.name,rows,nCorr);
   }catch(e){erroLeitura(e)}
+}
+/* Confere cada valor lido com a coluna Saldo do extrato: saldo desta linha − saldo da linha anterior no tempo = valor com sinal.
+   Quando a conta não fecha, o valor é corrigido pelo saldo (só se as linhas vizinhas fecham, para o erro não estar no saldo) ou a linha recebe um aviso. */
+function conferirSaldos(rows){
+  const com=rows.filter(r=>r.saldo!=null).length;
+  if(rows.length<2||com<rows.length*0.6)return 0;
+  const asc=rows[0].date<rows[rows.length-1].date;
+  const velha=i=>asc?rows[i-1]:rows[i+1], nova=i=>asc?rows[i+1]:rows[i-1];
+  const efeito=r=>(r.dir==='in'?1:-1)*cents(r.amount);
+  const dif=i=>{const r=rows[i],o=velha(i);return(r&&o&&r.saldo!=null&&o.saldo!=null)?Math.round((r.saldo-o.saldo)*100):null};
+  const ok=i=>{const d=dif(i);return d===null?null:d===efeito(rows[i])};
+  const falhas=[];for(let i=0;i<rows.length;i++)if(ok(i)===false)falhas.push(i);
+  let n=0;
+  for(const i of falhas){
+    const r=rows[i],d=dif(i),vizNova=nova(i)?ok(asc?i+1:i-1):null,vizVelha=velha(i)?ok(asc?i-1:i+1):null;
+    const saldoConfiavel=vizNova!==false&&vizVelha!==false;
+    if(d!==0&&saldoConfiavel&&(d>0)===(r.dir==='in')){r.lido=r.amount;r.amount=Math.abs(d)/100;r.corrigido=true;n++}
+    else r.aviso=true;
+  }
+  return n;
 }
 /* Regra: por grupo (banco+data+tipo+valor) conta quantas já existem de extratos; só as ocorrências além disso são novas.
    Descrição não entra na comparação, então variações de texto entre extratos não duplicam, e pagamentos legítimos repetidos são preservados. */
-function previewImport(bank,fileName,rows){
+function previewImport(bank,fileName,rows,nCorr){
   const have={};
   state.tx.filter(t=>t.origin==='extrato'&&t.bank===bank).forEach(t=>{const k=[t.date,t.dir||t.kind,cents(t.amount)].join('|');have[k]=(have[k]||0)+1});
   const seen={};
@@ -729,10 +750,11 @@ function previewImport(bank,fileName,rows){
   window._imp={bank,fileName,rows};
   const nNew=rows.filter(r=>r.isNew).length;
   modal(`<h3>Prévia — ${esc(bank)}</h3><p><b>${nNew}</b> novas · <b>${rows.length-nNew}</b> já existiam (não serão acrescentadas).</p>
+  ${nCorr?`<p class="note" style="color:var(--warn)"><b>${nCorr}</b> valor(es) foram corrigidos pelo saldo que o banco imprime em cada linha (marcados abaixo).</p>`:''}${rows.some(r=>r.aviso)?`<p class="note" style="color:var(--bad)"><b>⚠ ${rows.filter(r=>r.aviso).length}</b> linha(s) não fecham com o saldo do banco. Confira esses valores com o extrato antes de acrescentar.</p>`:''}
   <p class="note">Transferências entre suas contas (e com o Douglas) ficam fora de "entrou" e "saiu". O app marca sozinho quando acha o outro lado em outro banco; desmarque "Própria" se não for.</p>
   <label style="display:flex;align-items:center;gap:12px;margin:12px 0;font-size:17px;font-weight:700"><input type="checkbox" id="impAll" data-a="impAll" checked style="width:auto;margin:0;transform:scale(1.6)"> Selecionar todas</label><p class="note">Todas as novas já vêm marcadas. Desmarque uma a uma só as que <b>não</b> quer acrescentar. Tocando em "Selecionar todas" você desmarca ou marca tudo de uma vez.</p>
   <table><tr><th>Importar</th><th>Data</th><th>Descrição</th><th class="n">Valor</th><th>Própria</th></tr>
-  ${rows.map((r,i)=>`<tr style="${r.isNew?'':'opacity:.45'}"><td>${r.isNew?`<input type="checkbox" data-a="imp" data-i="${i}" ${r.skip?'':'checked'} style="width:auto;margin:0;transform:scale(1.4)"> <span class="chip">nova</span>`:'<span class="chip">já existe</span>'}</td><td>${fd(r.date)}</td><td>${esc(r.desc)}<br><small class="note">${esc(r.cat)}${r.pair?' · <b>par encontrado em '+esc(r.parInfo)+'</b>':''}</small></td><td class="n ${r.dir}">${r.dir==='in'?'+':'−'}${brl(r.amount)}</td><td>${r.isNew?`<input type="checkbox" data-a="own" data-i="${i}" ${r.own?'checked':''} style="width:auto;margin:0">`:''}</td></tr>`).join('')}</table><br>
+  ${rows.map((r,i)=>`<tr style="${r.isNew?'':'opacity:.45'}"><td>${r.isNew?`<input type="checkbox" data-a="imp" data-i="${i}" ${r.skip?'':'checked'} style="width:auto;margin:0;transform:scale(1.4)"> <span class="chip">nova</span>`:'<span class="chip">já existe</span>'}</td><td>${fd(r.date)}</td><td>${esc(r.desc)}<br><small class="note">${esc(r.cat)}${r.corrigido?' · <b style="color:var(--warn)">corrigido pelo saldo (a IA leu '+brl(r.lido)+')</b>':''}${r.aviso?' · <b style="color:var(--bad)">⚠ não fecha com o saldo do banco</b>':''}${r.pair?' · <b>par encontrado em '+esc(r.parInfo)+'</b>':''}</small></td><td class="n ${r.dir}">${r.dir==='in'?'+':'−'}${brl(r.amount)}</td><td>${r.isNew?`<input type="checkbox" data-a="own" data-i="${i}" ${r.own?'checked':''} style="width:auto;margin:0">`:''}</td></tr>`).join('')}</table><br>
   <button class="b" id="impGo" ${nNew?'':'disabled'}>Acrescentar ${nNew} nova(s)</button> <button class="b g" data-a="close">Cancelar</button>`);
   $('#impGo').onclick=confirmImport;
 }
