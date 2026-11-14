@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14zzzz';
+const APP_VER='2026-11-14zzzzz';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -545,7 +545,10 @@ function vCfg(){
   <label class="b">Importar planilha (Excel ou CSV)<input type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" data-a="planilha" hidden></label></div>
   <div class="card"><b>Apagar contas e faturas</b>
   <p class="note">Apaga de uma vez todas as contas a pagar e as faturas de cartão (pagas e pendentes). Não mexe no extrato, nos lançamentos que você fez à mão, nem nos cartões cadastrados. Dica: baixe o backup antes.</p>
-  <button class="b g" data-a="limparContas" style="border-color:#c0392b;color:#c0392b">Apagar contas e faturas</button></div>`;
+  <button class="b g" data-a="limparContas" style="border-color:#c0392b;color:#c0392b">Apagar contas e faturas</button></div>
+  <div class="card"><b>Recomeçar do zero</b>
+  <p class="note">Apaga TUDO que foi lançado: contas, faturas, extratos, cartões cadastrados, contas fixas e o histórico de importações. Não mexe em recados, cofre, metas nem configurações. Baixe o backup antes.</p>
+  <button class="b g" data-a="limparTudo" style="border-color:#c0392b;color:#c0392b">Apagar tudo e recomeçar</button></div>`;
 }
 function vCartoes(){
   const t0=localToday();
@@ -1062,6 +1065,9 @@ const A={
     $('#fOk').onclick=async()=>{const v=num($('#fV').value);if(!v)return toast('Informe o valor');
       await save('tx',{kind:'out',desc:'Fatura '+c.name,amount:v,date:$('#fT').value,status:$('#fS').value,category:'Cartão',cardId:c.id,origin:'cartao',createdAt:new Date().toISOString()});closeModal();render()}},
   plBanco:d=>{previewImport(d.b,window._plNome,window._plRows,0)},
+  limparTudo:()=>{const C=['tx','cards','modelos','imports'];const n=C.reduce((a,c)=>a+Object.values(STORE[c]||{}).filter(x=>x&&!x._d).length,0);
+    if(!n){toast('Não há nada para apagar');return}
+    confirmBox(`Apagar TUDO (${n} registros: contas, faturas, extratos, cartões, contas fixas e importações)? Recados, cofre e metas ficam. Não dá para desfazer (só importando de novo).`,async()=>{const now=Date.now();C.forEach(c=>Object.values(STORE[c]||{}).forEach(x=>{if(x&&x.id&&!x._d)STORE[c][x.id]={id:x.id,_d:true,_u:now}}));persist();loadState();agendarSync();render();toast(n+' registros apagados')})},
   limparContas:()=>{const L=state.tx.filter(t=>t.origin==='conta'||t.origin==='cartao'||t.cardId);if(!L.length){toast('Não há contas nem faturas para apagar');return}
     confirmBox(`Apagar ${L.length} conta(s) e fatura(s)? O extrato e os lançamentos feitos à mão ficam. Não dá para desfazer (só importando um backup).`,async()=>{const now=Date.now();L.forEach(t=>{STORE.tx[t.id]={id:t.id,_d:true,_u:now}});persist();loadState();agendarSync();render();toast(L.length+' apagado(s)')})},
   delCard:d=>confirmBox('Excluir este cartão? As faturas dele continuam nos lançamentos.',async()=>{await remove('cards',d.id);render()}),
