@@ -232,7 +232,7 @@ async function boot(){
   aplicarTema();loadState();render();setStatus();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(r=>{window._swReg=r}).catch(()=>{});
   /* Atualização automática: confere se há versão nova ao abrir, ao voltar para o app e a cada 10 min */
-  const APP_VER='2026-11-14b';
+  const APP_VER='2026-11-14c';
   let _avisou=false;
   async function checarVersao(){
     if(_avisou||!navigator.onLine)return;
@@ -579,12 +579,22 @@ function cardForm(c){
   modal(`<h3>${c.id?'Editar':'Novo'} cartão</h3><label class="f">Nome</label><input id="cN" value="${esc(c.name||'')}"><label class="f">Dia de vencimento (opcional)</label><input id="cD" inputmode="numeric" value="${esc(c.due||'')}"><button class="b" id="cS">Salvar</button> <button class="b g" data-a="close">Cancelar</button>`);
   $('#cS').onclick=async()=>{if(!$('#cN').value.trim())return;await save('cards',{...c,name:$('#cN').value.trim(),due:$('#cD').value});closeModal();render()};
 }
+function erroLeitura(e){
+  const m=String((e&&e.message)||e||'erro desconhecido');
+  let dica='Tente de novo. Se continuar, me mande um print desta tela.';
+  if(/chave da OpenAI/i.test(m))dica='Falta a chave da OpenAI <b>neste aparelho</b>. Vá em <b>Mais › ⚙ Configurações › Chave da OpenAI</b>, cole a chave (começa com sk-) e salve. A chave não sincroniza entre aparelhos.';
+  else if(/OpenAI 401/.test(m))dica='A chave da OpenAI foi recusada. Confira se foi copiada inteira, sem espaços, e se é uma chave de API (sk-…).';
+  else if(/OpenAI 429|quota|billing/i.test(m))dica='A conta da OpenAI está sem crédito ou atingiu o limite. Confira em platform.openai.com › Billing.';
+  else if(/OpenAI 400|OpenAI 413/.test(m))dica='O arquivo é grande demais ou não foi aceito. Tente um PDF só com o período desejado, ou um print.';
+  else if(/Failed to fetch|NetworkError|load failed|script/i.test(m))dica='Sem conexão com a internet, ou o leitor de PDF não carregou. Confira a internet e tente de novo.';
+  modal('<h3>Não consegui ler o arquivo</h3><p>'+dica+'</p><p class="note">Detalhe técnico: '+esc(m)+'</p><button class="b" data-a="close">Entendi</button>');
+}
 async function readConta(file){
   toast('Lendo a conta…');
   try{
     const r=await askClaude(`Leia esta conta/boleto/fatura. Responda SOMENTE JSON: {"descricao":"nome do beneficiário ou da conta","valor_total":número em reais,"vencimento":"YYYY-MM-DD"|null}. Use o valor TOTAL a pagar (não o valor de itens). Se não achar com certeza, use null.`,file);
     txForm({kind:'out',status:'pendente',origin:'conta',category:'Outros',desc:r.descricao||'',amount:r.valor_total||'',date:r.vencimento||localToday()});
-  }catch(e){toast('Não consegui ler: '+(e.message||e))}
+  }catch(e){erroLeitura(e)}
 }
 
 /* ---------- importação incremental de extrato ---------- */
@@ -597,7 +607,7 @@ async function readExtrato(file){
     const rows=(r.movimentos||[]).filter(m=>m.data&&m.valor).map(m=>({date:m.data,desc:String(m.descricao||'').trim(),amount:Math.abs(+m.valor),dir:m.tipo==='entrada'?'in':'out'}));
     if(!rows.length)return toast('Nenhuma movimentação encontrada');
     previewImport(bank,file.name,rows);
-  }catch(e){toast('Não consegui ler: '+(e.message||e))}
+  }catch(e){erroLeitura(e)}
 }
 /* Regra: por grupo (banco+data+tipo+valor) conta quantas já existem de extratos; só as ocorrências além disso são novas.
    Descrição não entra na comparação, então variações de texto entre extratos não duplicam, e pagamentos legítimos repetidos são preservados. */
