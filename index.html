@@ -12,8 +12,7 @@
 <title>Meu Financeiro</title>
 <script>try{var t=(JSON.parse(localStorage.getItem('mf_set')||'{}')).tema;if(t&&t!=='auto')document.documentElement.setAttribute('data-tema',t)}catch(e){}</script>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--mut:#6b7385;--bd:#e3e6ec;--pri:#2457c5;--ok:#1f8a4c;--warn:#c76a00;--bad:#c0392b;--pur:#6b3fb5}
-@media(prefers-color-scheme:dark){:root{--bg:#12151c;--card:#1b202a;--tx:#e8ebf2;--mut:#98a1b5;--bd:#2a3140;--pri:#6b95f0;--ok:#4cc27e;--warn:#f0a040;--bad:#ef7766;--pur:#a98be0}}
+:root{--bg:#06241a;--card:#0c3326;--tx:#f6edcf;--mut:#b7ae88;--bd:#7a6224;--pri:#e0b23a;--onpri:#1a1405;--ok:#7bd88f;--warn:#f0b43c;--bad:#f08a78;--pur:#c9a6f0;--gold:#e0b23a;--glass:linear-gradient(160deg,rgba(26,62,46,.92),rgba(8,36,26,.92))}
 html[data-tema=claro]{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--mut:#6b7385;--bd:#e3e6ec;--pri:#2457c5;--onpri:#fff;--ok:#1f8a4c;--warn:#c76a00;--bad:#c0392b;--pur:#6b3fb5}
 html[data-tema=escuro]{--bg:#12151c;--card:#1b202a;--tx:#e8ebf2;--mut:#98a1b5;--bd:#2a3140;--pri:#6b95f0;--onpri:#0b0f18;--ok:#4cc27e;--warn:#f0a040;--bad:#ef7766;--pur:#a98be0}
 html[data-tema=verde]{--bg:#06241a;--card:#0d3a2b;--tx:#f6edcf;--mut:#b7ae88;--bd:#1f5a45;--pri:#d4a62a;--onpri:#1a1405;--ok:#7bd88f;--warn:#f0b43c;--bad:#f08a78;--pur:#c9a6f0}
@@ -66,10 +65,62 @@ td.n,th.n{text-align:right}
 a.s{text-decoration:none;display:inline-block;color:var(--tx)}
 .wa{color:#1a8f4a!important;border-color:#1a8f4a!important}
 .tile{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 14px;cursor:pointer;min-width:0}
+body{background:radial-gradient(120% 60% at 50% 0,#0c3a2b 0,var(--bg) 60%) fixed var(--bg)}
+html[data-tema=claro] body,html[data-tema=lavanda] body{background:var(--bg)}
+header.hdr{position:relative;display:block;padding:0;height:178px;background:linear-gradient(180deg,rgba(6,36,26,.25),var(--bg) 98%),url(topo.jpg) center/cover;margin-bottom:6px}
+.hdr .menu{position:absolute;left:14px;top:14px;width:46px;height:46px;border-radius:50%;border:1.5px solid var(--gold);background:rgba(6,36,26,.55);color:var(--gold);font-size:24px;line-height:1;display:flex;align-items:center;justify-content:center}
+.hdr .brand{position:absolute;left:0;right:0;bottom:6px;text-align:center}
+.hdr .knot{height:74px;display:block;margin:0 auto -4px;filter:drop-shadow(0 2px 6px #0008)}
+.hdr h1{font:600 34px/1.1 Georgia,'Times New Roman',serif;background:linear-gradient(180deg,#fff6d6,#e8c25a 60%,#b98a22);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 4px #000a);margin:0}
+.hdr .orn{display:block;width:min(70%,330px);height:1px;margin:5px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.hdr .logos{position:absolute;right:8px;top:8px;height:64px;filter:drop-shadow(0 0 6px #000) drop-shadow(0 0 3px #000)}
+.hdr .sync{position:absolute;right:12px;bottom:8px;font-size:11px;background:rgba(6,36,26,.6);padding:2px 8px;border-radius:10px}
+@media(max-width:560px){.hdr{height:150px}.hdr .knot{height:58px}.hdr h1{font-size:27px}.hdr .logos{display:none}.hdr .sync{bottom:auto;top:22px}}
+.card,.tile,.modal>div{background:var(--glass);border-color:var(--bd);box-shadow:0 2px 10px #0006}
+html[data-tema=claro] .card,html[data-tema=claro] .tile,html[data-tema=lavanda] .card,html[data-tema=lavanda] .tile{background:var(--card);box-shadow:none}
+.card,.tile{border-radius:18px;border-width:1.5px}
+.tile.top{text-align:center;padding:12px 6px;border-color:var(--gold)}
+.tile.top svg{width:30px;height:30px;stroke:var(--gold);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tile.top .k{color:var(--tx);font-size:14px;line-height:1.15;min-height:32px;display:flex;align-items:center;justify-content:center}
+.tile.top .v{font-size:34px;font-family:Georgia,serif}
+.tile.act{text-align:center;padding:14px 6px;border-color:var(--gold)}
+.tile.act svg{width:38px;height:38px;stroke:var(--gold);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.tile.act div{font-size:15px;margin-top:4px;line-height:1.15}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:10px 0}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:10px 0}
+.money{display:flex;align-items:center;gap:8px;padding:10px 12px;margin:0}
+.money svg{width:30px;height:30px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.money .k{color:var(--tx);font-size:14px}.money .v{font-size:clamp(14px,3.9vw,22px);font-family:Georgia,serif;white-space:nowrap}
+.money.m-in{border-color:#4cc27e;color:#6fe0a0}.money.m-out{border-color:#e0705e;color:#f08a78}.money.m-saldo{border-color:var(--gold);color:var(--gold)}
+@media(max-width:560px){.money{flex-direction:column;align-items:flex-start;gap:2px}.money svg{width:22px;height:22px}}
+.apagar{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 12px;border-color:var(--gold)}
+.apagar svg{width:36px;height:36px;stroke:var(--gold);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.apagar .v{font-size:24px;font-family:Georgia,serif;color:var(--gold)}
+.pill{border:0;border-radius:30px;background:linear-gradient(180deg,#ffd877,#e0a62a);color:#2a1d04;font:600 17px Georgia,serif;padding:12px 20px;box-shadow:0 2px 8px #0007;white-space:nowrap}
+.cathd{display:flex;align-items:center;gap:8px;font:600 21px Georgia,serif;color:var(--tx)}
+.cathd svg{width:26px;height:26px;stroke:var(--gold);fill:none;stroke-width:1.8}
+.catrow{display:flex;align-items:center;gap:10px;padding:4px 0;cursor:pointer}
+.catrow>svg{width:26px;height:26px;stroke:var(--gold);fill:none;stroke-width:1.6;flex:none}
+.catrow .mid{flex:1;min-width:0}.catrow .top{display:flex;justify-content:space-between;font-size:16px}
+.catrow .bar{background:#0006;height:7px;margin:4px 0 0}.catrow .bar i{background:linear-gradient(90deg,#b98a22,#ffd877)}
+.catrow .pc{font-size:13px;color:var(--gold);background:#d4a62a22;border:1px solid #d4a62a66;border-radius:12px;padding:3px 9px}
+.mnav{margin:10px 0}.mnav b span{display:inline-block}.mnav b span:first-letter{text-transform:uppercase}
+.mnav b{font:600 24px Georgia,serif;display:flex;align-items:center;gap:8px}
+.mnav b svg{width:28px;height:28px;stroke:var(--gold);fill:none;stroke-width:1.6}
+.mnav button.s{width:46px;height:34px;border-radius:20px;border:1.5px solid var(--gold);color:var(--gold);font-size:20px;padding:0;margin:0}
+nav{left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom,0));border:1.5px solid var(--bd);border-radius:26px;background:linear-gradient(160deg,rgba(18,52,38,.97),rgba(5,28,20,.97));padding:6px;gap:2px;max-width:760px;margin:0 auto;box-shadow:0 4px 16px #000a}
+nav button{border-radius:20px;min-height:64px;padding:8px 2px;font-size:14px;color:var(--tx);font-family:Georgia,serif}
+nav button svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{background:linear-gradient(180deg,#8a6a1c,#4a3a10);border:1.5px solid var(--gold);color:#fff3c8;box-shadow:0 0 12px #e0b23a66}
+html[data-tema=claro] nav,html[data-tema=lavanda] nav{background:var(--card)}
+html[data-tema=claro] nav button,html[data-tema=lavanda] nav button{color:var(--mut)}
+html[data-tema=claro] nav button.on,html[data-tema=lavanda] nav button.on{background:var(--pri);color:#fff}
+body{padding-bottom:116px}
+button.b,label.b{border-radius:22px}
 </style>
 </head>
 <body>
-<header><h1>Meu Financeiro</h1><span id="sync" class="sync" data-a="syncAgora" style="cursor:pointer">conectando…</span></header>
+<header class="hdr"><button class="menu" data-a="tab" data-k="mais" aria-label="Menu">☰</button><div class="brand"><img class="knot" src="no.png" alt=""><h1>Meu Financeiro</h1><i class="orn"></i></div><img class="logos" src="logos.png" alt=""><span id="sync" class="sync" data-a="syncAgora" style="cursor:pointer">conectando…</span></header>
 <main id="view"></main>
 <nav id="nav"></nav>
 <div id="modal"></div>
@@ -103,8 +154,8 @@ const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}
 let STORE=LS.get('mf_store',{});COLS.forEach(c=>{STORE[c]=STORE[c]||{}});
 const SET=LS.get('mf_set',{});
 const saveSet=()=>LS.set('mf_set',SET);
-const TEMAS=[['auto','Automático','#f6f7f9','#2457c5'],['claro','Claro','#ffffff','#2457c5'],['escuro','Escuro','#12151c','#6b95f0'],['verde','Verde e ouro','#06241a','#d4a62a'],['noite','Noite e ouro','#0c1428','#d4a62a'],['lavanda','Lavanda','#f6f2fb','#6b3fb5']];
-function aplicarTema(){const t=SET.tema||'auto';if(t==='auto')document.documentElement.removeAttribute('data-tema');else document.documentElement.setAttribute('data-tema',t);const m=document.querySelector('meta[name=theme-color]');const x=TEMAS.find(a=>a[0]===t);if(m&&x&&t!=='auto')m.setAttribute('content',x[2])}
+const TEMAS=[['auto','Verde e ouro (padrão)','#06241a','#e0b23a'],['claro','Claro','#ffffff','#2457c5'],['escuro','Escuro','#12151c','#6b95f0'],['noite','Noite e ouro','#0c1428','#d4a62a'],['lavanda','Lavanda','#f6f2fb','#6b3fb5']];
+function aplicarTema(){const t=SET.tema||'auto';if(t==='auto')document.documentElement.removeAttribute('data-tema');else document.documentElement.setAttribute('data-tema',t);const m=document.querySelector('meta[name=theme-color]');const x=TEMAS.find(a=>a[0]===t);if(m&&x)m.setAttribute('content',x[2])}
 const persist=()=>LS.set('mf_store',STORE);
 function loadState(){COLS.forEach(c=>{state[c]=Object.values(STORE[c]).filter(x=>!x._d)})}
 async function save(col,obj){
@@ -256,8 +307,28 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14n';
-const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
+const APP_VER='2026-11-14o';
+const IC={
+home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
+doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
+card:'<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6 15h4"/>',
+down:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',
+chat:'<path d="M4 5h16v11H9l-5 4z"/>',
+grid:'<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
+alert:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
+cal:'<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+file:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+up:'<path d="M5 19L19 5M9 5h10v10"/>',
+dn:'<path d="M5 5l14 14M19 9v10H9"/>',
+coins:'<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7M3 12v5c0 1.7 2.7 3 6 3 2 0 3.700-.5 4.800-1.200M15 11c3 .2 6 1.300 6 3v5c0 1.700-2.700 3-6 3"/>',
+cloud:'<path d="M7 18a4.500 4.500 0 01-.500-9A6 6 0 0118 10a4 4 0 010 8"/><path d="M12 21v-8M9 15l3-3 3 3"/>',
+target:'<circle cx="12" cy="13" r="8"/><circle cx="12" cy="13" r="4"/><path d="M12 13L21 4M17 4h4v4"/>',
+chart:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/><circle cx="18" cy="8" r="3"/><path d="M20 10l2 2"/>',
+bars:'<path d="M5 20V11M11 20V4M17 20v-7"/>'
+};
+const svg=(n,x='')=>`<svg viewBox="0 0 24 24" ${x}>${IC[n]||''}</svg>`;
+const CATIC={'Casa e clínica':'home','Cartão':'card','Impostos':'doc','Outros':'grid'};
+const TABS=[['resumo','Resumo','home'],['contas','Contas','doc'],['cartoes','Cartões','card'],['extrato','Extratos','down'],['recados','Recados','chat'],['mais','Mais','grid']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
 const addDias=n=>new Date(Date.now()+n*864e5-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
@@ -272,8 +343,8 @@ function textoResumo(){
 }
 const live=t=>!t.absorbedBy;
 const banks=()=>[...new Set(['Itaú','Caixa',...state.tx.map(t=>t.bank),...state.imports.map(i=>i.bank)].filter(Boolean))];
-function renderNav(){$('#nav').innerHTML=TABS.map(([k,n,ic])=>`<button class="${state.tab===k?'on':''}" data-a="tab" data-k="${k}"><i>${ic}</i>${n}</button>`).join('')}
-function monthNav(){return`<div class="mnav"><button class="s" data-a="mm" data-n="-1">◀</button><b>${monthLabel(state.month)}</b><button class="s" data-a="mm" data-n="1">▶</button></div>`}
+function renderNav(){$('#nav').innerHTML=TABS.map(([k,n,ic])=>`<button class="${state.tab===k?'on':''}" data-a="tab" data-k="${k}">${svg(ic)}${n}</button>`).join('')}
+function monthNav(){return`<div class="mnav"><button class="s" data-a="mm" data-n="-1">‹</button><b>${svg('cal')}<span>${monthLabel(state.month)}</span></b><button class="s" data-a="mm" data-n="1">›</button></div>`}
 function txRow(t){
   const sign=t.kind==='in'?'+':t.kind==='out'?'−':'↔';
   const cls=t.kind==='out'&&t.status==='pendente'?'pend':t.kind;
@@ -284,7 +355,8 @@ function vResumo(){
   const s=sums();
   const max=Math.max(1,...Object.values(s.cat));
   const catRows=c=>state.tx.filter(inMonth).filter(live).filter(t=>t.kind==='out'&&t.status==='pago'&&(t.category||'Outros')===c).sort((x,y)=>y.date.localeCompare(x.date)).map(t=>`<div class="row"><div class="rl"><b>${esc(t.desc)}</b><small>${fd(t.date).slice(0,5)} · ${esc(t.bank||'Contas')}${t.juros>0?' · juros '+brl(t.juros):''}</small></div><div class="rr out">${brl(t.amount)}<div><button class="s" data-a="edit" data-id="${t.id}">Editar</button></div></div></div>`).join('');
-  const bars=Object.entries(s.cat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div data-a="catTog" data-k="${esc(c)}" style="cursor:pointer;padding:2px 0"><div style="display:flex;justify-content:space-between"><span>${esc(c)} <small class="note">${state.catOpen===c?'▲':'▼'}</small></span><b>${brl(v)}</b></div><div class="bar"><i style="width:${v/max*100}%"></i></div></div>${state.catOpen===c?`<div style="margin:4px 0 8px">${catRows(c)}</div>`:''}`).join('')||'<p class="note">Sem saídas pagas neste mês.</p>';
+  const totCat=Object.values(s.cat).reduce((x,y)=>x+y,0)||1;
+  const bars=Object.entries(s.cat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div class="catrow" data-a="catTog" data-k="${esc(c)}">${svg(CATIC[c]||'bars')}<div class="mid"><div class="top"><span>${esc(c)}</span><b>${brl(v)}</b></div><div class="bar"><i style="width:${v/max*100}%"></i></div></div><span class="pc">${Math.round(v/totCat*100)}%</span></div>${state.catOpen===c?`<div style="margin:4px 0 8px">${catRows(c)}</div>`:''}`).join('')||'<p class="note">Sem saídas pagas neste mês.</p>';
   const t0=localToday();
   const base=state.tx.filter(t=>t.kind==='out'&&t.status==='pendente'&&t.origin!=='extrato'&&live(t));
   const d7=addDias(7);
@@ -300,13 +372,16 @@ function vResumo(){
   const dados={rec:recRows+`<button class="s" data-a="tab" data-k="recados">+ Novo recado</button>`,venc:vencidas.map(t=>lin(t,pagar(t))).join(''),p7:prox7.map(t=>lin(t,pagar(t))).join(''),inf:ainfo.map(t=>lin(t,informar(t))).join('')};
   const titulos={rec:'Recados em aberto',venc:'Vencidas',p7:'Vencem nos próximos 7 dias',inf:'Faturas a informar'};
   const tiles=[['rec','Recados',abertos.length,'var(--warn)'],['venc','Vencidas',vencidas.length,'var(--bad)'],['p7','Vencem em 7 dias',prox7.length,'var(--warn)'],['inf','Faturas a informar',ainfo.length,'var(--pur)']];
-  const tilesH=`<div class="grid">${tiles.map(([k,n,c,cor])=>`<div class="tile" data-a="resTog" data-k="${k}" style="${c?'border-color:'+cor:''}${state.resOpen===k?';background:var(--bg)':''}"><div class="k">${n}</div><div class="v" style="color:${c?cor:'var(--mut)'}">${c}</div>${k==='rec'&&abertos[0]?`<div class="note" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(abertos[0].from)}: ${esc(abertos[0].text)}</div>`:''}</div>`).join('')}</div>`;
+  const tIc={rec:'file',venc:'alert',p7:'cal',inf:'file'};
+  const tilesH=`<div class="g4">${tiles.map(([k,n,c,cor])=>`<div class="tile top" data-a="resTog" data-k="${k}" style="${k==='venc'&&c?'border-color:#e0705e;background:linear-gradient(160deg,#4a1c18,#2a100e)':k==='inf'?'border-color:#5fd0d6;background:linear-gradient(160deg,#0c3b40,#082428)':''}${state.resOpen===k?';outline:2px solid var(--gold)':''}">${svg(tIc[k],k==='venc'&&c?'style="stroke:#f08a78"':k==='inf'?'style="stroke:#6fe0e6"':'')}<div class="k">${n}</div><div class="v" style="color:${k==='venc'&&c?'#f08a78':k==='inf'?'#6fe0e6':'var(--gold)'}">${c}</div></div>`).join('')}</div>`;
   const painel=state.resOpen&&dados[state.resOpen]!==undefined?`<div class="card"><b>${titulos[state.resOpen]}</b>${dados[state.resOpen].replace(/<button class="s" data-a="tab" data-k="recados">[^<]*<\/button>$/,'')?dados[state.resOpen]:'<p class="note">Nada aqui. 🎉</p>'}</div>`:'';
   const avisoSync=syncPronto()?'':`<div class="alert">Os dados estão só neste aparelho. Em <b>Mais › Configurações</b> conecte o Google Drive para sincronizar com o Douglas.</div>`;
-  return avisoSync+quick+tilesH+painel+monthNav()+`<div class="grid">
-  ${[['ent','Dinheiro que entrou',brl(s.ent),'in','recebido neste mês'],['sai','Dinheiro que saiu',brl(s.sai),'out','contas já pagas'],['pen','Ainda falta pagar',brl(s.pen),'pend','contas em aberto'],['saldo','Saldo até agora',brl(s.saldo),s.saldo<0?'out':'in','entrou − saiu']].map(([k,r,v,cl,nt])=>`<div class="card" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'border-color:var(--pri);box-shadow:0 0 0 1px var(--pri) inset':''}"><div class="k">${r} ${state.finOpen===k?'▼':'▸'}</div><div class="v ${cl}">${v}</div><div class="note">${nt}</div>${k==='saldo'?`<div class="note">se pagar o que falta: <b>${brl(s.saldo-s.pen)}</b></div>`:'<div class="note">toque para ver o detalhe</div>'}</div>`).join('')}</div>
+  return avisoSync+tilesH+painel+monthNav()+`<div class="g3">
+  ${[['ent','Entradas',s.ent,'m-in','up'],['sai','Saídas',s.sai,'m-out','dn'],['saldo','Saldo atual',s.saldo,'m-saldo','coins']].map(([k,r,v,cl,ic])=>`<div class="card money ${cl}" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'box-shadow:0 0 0 2px var(--gold)':''}">${svg(ic)}<div style="min-width:0"><div class="k">${r}</div><div class="v">${k==='saldo'&&v<0?'-':''}${brl(Math.abs(v))}</div></div></div>`).join('')}</div>
+  <div class="card apagar" style="${state.finOpen==='pen'?'box-shadow:0 0 0 2px var(--gold)':''}"><div data-a="finTog" data-k="pen" style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1">${svg('coins')}<div><div class="k" style="color:var(--tx)">A pagar</div><div class="v">${brl(s.pen)}</div></div></div><button class="pill" data-a="new" data-kind="out" data-pend="1">+ Conta a pagar</button></div>
   ${painelFin(s)}
-  <div class="card"><b>Saídas por categoria</b> <small class="note">toque para ver os lançamentos</small><div style="margin-top:8px">${bars}</div></div>
+  <div class="card"><div class="cathd">${svg('bars')}Saídas por categoria</div><div style="margin-top:8px">${bars}</div></div>
+  <div class="g4">${[['Importar extrato','cloud','extrato'],['Contas fixas','cal','contas','fixas'],['Metas','target','mais','metas'],['Diagnóstico financeiro','chart','mais','diag']].map(([n,i,t,sb])=>`<div class="tile act" data-a="ir" data-t="${t}" data-s="${sb||''}">${svg(i)}<div>${n}</div></div>`).join('')}</div>
   <p class="note">Transferências entre contas próprias ficam fora de entradas e saídas. Valores de cheque especial são estimativas (aba Dívidas).</p>`;
 }
 function painelFin(s){
@@ -778,7 +853,7 @@ function vItemForm(it){
 }
 /* ---------- ações ---------- */
 const A={
-  tab:d=>{state.tab=d.k;render()},sub:d=>{state.sub=d.k;render()},close:()=>closeModal(),
+  tab:d=>{state.tab=d.k;render()},ir:d=>{state.tab=d.t;if(d.t==='contas'&&d.s)state.csub=d.s;if(d.t==='mais'&&d.s)state.sub=d.s;window.scrollTo(0,0);render()},sub:d=>{state.sub=d.k;render()},close:()=>closeModal(),
   mm:d=>{state.month=shiftMonth(state.month,+d.n);render()},
   new:d=>txForm({kind:d.kind,status:d.pend?'pendente':'pago',category:d.kind==='in'?'Atendimentos':'Outros'}),
   edit:d=>txForm(state.tx.find(t=>t.id===d.id)),
