@@ -278,7 +278,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14h';
+const APP_VER='2026-11-14i';
 const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
@@ -642,13 +642,15 @@ function previewImport(bank,fileName,rows){
   const nNew=rows.filter(r=>r.isNew).length;
   modal(`<h3>Prévia — ${esc(bank)}</h3><p><b>${nNew}</b> novas · <b>${rows.length-nNew}</b> já existiam (não serão acrescentadas).</p>
   <p class="note">Transferências entre suas contas (e com o Douglas) ficam fora de "entrou" e "saiu". O app marca sozinho quando acha o outro lado em outro banco; desmarque "Própria" se não for.</p>
-  <table><tr><th></th><th>Data</th><th>Descrição</th><th class="n">Valor</th><th>Própria</th></tr>
-  ${rows.map((r,i)=>`<tr style="${r.isNew?'':'opacity:.45'}"><td>${r.isNew?'<span class="chip">nova</span>':'<span class="chip">já existe</span>'}</td><td>${fd(r.date)}</td><td>${esc(r.desc)}<br><small class="note">${esc(r.cat)}${r.pair?' · <b>par encontrado em '+esc(r.parInfo)+'</b>':''}</small></td><td class="n ${r.dir}">${r.dir==='in'?'+':'−'}${brl(r.amount)}</td><td>${r.isNew?`<input type="checkbox" data-a="own" data-i="${i}" ${r.own?'checked':''} style="width:auto;margin:0">`:''}</td></tr>`).join('')}</table><br>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><button class="b g" data-a="impTodas" data-v="1">✔ Marcar todas</button><button class="b g" data-a="impTodas" data-v="0">Desmarcar todas</button></div><p class="note">Todas as novas já vêm marcadas. Desmarque só as que <b>não</b> quer acrescentar.</p>
+  <table><tr><th>Importar</th><th>Data</th><th>Descrição</th><th class="n">Valor</th><th>Própria</th></tr>
+  ${rows.map((r,i)=>`<tr style="${r.isNew?'':'opacity:.45'}"><td>${r.isNew?`<input type="checkbox" data-a="imp" data-i="${i}" ${r.skip?'':'checked'} style="width:auto;margin:0;transform:scale(1.4)"> <span class="chip">nova</span>`:'<span class="chip">já existe</span>'}</td><td>${fd(r.date)}</td><td>${esc(r.desc)}<br><small class="note">${esc(r.cat)}${r.pair?' · <b>par encontrado em '+esc(r.parInfo)+'</b>':''}</small></td><td class="n ${r.dir}">${r.dir==='in'?'+':'−'}${brl(r.amount)}</td><td>${r.isNew?`<input type="checkbox" data-a="own" data-i="${i}" ${r.own?'checked':''} style="width:auto;margin:0">`:''}</td></tr>`).join('')}</table><br>
   <button class="b" id="impGo" ${nNew?'':'disabled'}>Acrescentar ${nNew} nova(s)</button> <button class="b g" data-a="close">Cancelar</button>`);
   $('#impGo').onclick=confirmImport;
 }
+function updImpCount(){const n=window._imp.rows.filter(r=>r.isNew&&!r.skip).length;const b=$('#impGo');if(b){b.textContent='Acrescentar '+n+' nova(s)';b.disabled=!n}}
 async function confirmImport(){
-  const{bank,fileName,rows}=window._imp;const novas=rows.filter(r=>r.isNew);
+  const{bank,fileName,rows}=window._imp;const novas=rows.filter(r=>r.isNew&&!r.skip);
   const impId='imp_'+uid(),now=new Date().toISOString();
   $('#impGo').disabled=true;$('#impGo').textContent='Salvando…';
   const quitadas=[];let pareadas=0;
@@ -823,11 +825,14 @@ const A={
   dedupe:d=>{const g=dupGroups()[+d.i];if(!g)return;
     confirmBox(`Remover ${g.extra} registro(s) excedente(s) de ${esc(g.arr[0].bank)} em ${fd(g.arr[0].date)}, ${brl(g.arr[0].amount)}? Ficam os mais antigos.`,async()=>{for(const t of g.toRemove)await remove('tx',t.id);render()})},
   own:d=>{window._imp.rows[+d.i].own=d.checked},
+  imp:d=>{window._imp.rows[+d.i].skip=!d.checked;updImpCount()},
+  impTodas:d=>{const on=d.v==='1';window._imp.rows.forEach(r=>{if(r.isNew)r.skip=!on});document.querySelectorAll('input[data-a="imp"]').forEach(c=>{c.checked=on});updImpCount()},
 };
 document.addEventListener('click',e=>{resetLock();const t=e.target.closest('[data-a]');if(!t||t.tagName==='INPUT')return;if(t.tagName==='A')e.preventDefault();const f=A[t.dataset.a];if(f)f(t.dataset)});
 document.addEventListener('change',e=>{
   const t=e.target;if(!t.dataset||!t.dataset.a)return;
   if(t.dataset.a==='own')A.own({i:t.dataset.i,checked:t.checked});
+  if(t.dataset.a==='imp')A.imp({i:t.dataset.i,checked:t.checked});
   if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='backup'){f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
 });
 boot();
