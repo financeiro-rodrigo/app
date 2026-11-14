@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14y';
+const APP_VER='2026-11-14z';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -540,7 +540,9 @@ function vCfg(){
   <button class="b" data-a="cfgIA">Salvar</button> <button class="b g" data-a="cfgTestar">Testar chave</button><p class="note">Versão do app: ${typeof APP_VER!=='undefined'?APP_VER:'?'}</p></div>
   <div class="card"><b>Backup dos dados</b>
   <p class="note">Baixe uma cópia ou traga os dados de outro lugar (por exemplo, do app antigo). Importar nunca apaga o que já existe.</p>
-  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="bkExport">Baixar backup</button><label class="b g">Importar arquivo<input type="file" accept="application/json,.json" data-a="backup" hidden></label><button class="b g" data-a="bkColar">Colar dados</button></div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="bkExport">Baixar backup</button><label class="b g">Importar arquivo<input type="file" accept="application/json,.json" data-a="backup" hidden></label><button class="b g" data-a="bkColar">Colar dados</button></div>
+  <p class="note" style="margin-top:10px"><b>Planilha (CSV):</b> contas pagas e a pagar de qualquer mês, ou extrato com Recebidos e Pagamentos. Valores e situação já existentes são atualizados, sem duplicar.</p>
+  <label class="b">Importar planilha (CSV)<input type="file" accept=".csv,text/csv,text/plain" data-a="planilha" hidden></label></div>
   <div class="card"><b>Apagar contas e faturas</b>
   <p class="note">Apaga de uma vez todas as contas a pagar e as faturas de cartão (pagas e pendentes). Não mexe no extrato, nos lançamentos que você fez à mão, nem nos cartões cadastrados. Dica: baixe o backup antes.</p>
   <button class="b g" data-a="limparContas" style="border-color:#c0392b;color:#c0392b">Apagar contas e faturas</button></div>`;
@@ -745,6 +747,74 @@ function previewCartoes(){
       const ex=state.tx.find(t=>t.cardId===c.id&&t.origin==='cartao'&&t.status==='pendente'&&t.date===x.venc);
       await save('tx',{...(ex||{}),kind:'out',desc:'Fatura '+c.name,amount:x.valor,date:x.venc||t0,status:x.pago?'pago':'pendente',category:'Cartão',cardId:c.id,origin:'cartao',createdAt:(ex&&ex.createdAt)||new Date().toISOString()});n++}
     closeModal();render();toast(n+' fatura(s) lançada(s)')};
+}
+
+/* ---------- importar planilha (CSV) ---------- */
+function parseCsv(txt){
+  txt=txt.replace(/^﻿/,'');const sep=(txt.split('\n')[0].match(/;/g)||[]).length>=(txt.split('\n')[0].match(/,/g)||[]).length?';':',';
+  const R=[];let row=[],f='',q=false;
+  for(let i=0;i<txt.length;i++){const c=txt[i];
+    if(q){if(c==='"'){if(txt[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;else if(c===sep){row.push(f);f=''}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&txt[i+1]==='\n')i++;row.push(f);f='';if(row.some(x=>x.trim()))R.push(row);row=[]}
+    else f+=c}
+  row.push(f);if(row.some(x=>x.trim()))R.push(row);return R;
+}
+const numBR=v=>{const s=String(v||'').replace(/R\$|\s/g,'');if(!s)return null;const n=s.includes(',')?parseFloat(s.replace(/\./g,'').replace(',','.')):parseFloat(s);return isNaN(n)?null:n};
+const PL_ALIAS={'AMEP':'amep','Aluguel 503':'aluguel503','Sala Comercial':'sala','Internet 1':'internet1','Internet 2':'internet2','Uniter 1':'uniter1','Uniter 2':'uniter2','Faxineira Sala':'faxineira','Faxineira comer':'faxineira','Dona Socorro':'socorro','Contador':'contador','Faculdade':'faculdade','Inter Douglas':'inter_d','Nubank Doug':'nubank_d','Mercado Pago':'mpago','Neon Doug':'neon_d','Picpay Doug':'picpay_d','PagBank Doug':'pagbank_d','Casa e vi Doug':'casavi_d','Santander':'santander','Santander Dou':'santander','Renner D 1/7':'renner_d','Renner D 2/7':'renner_d','Light 1':'light1','Light 2':'light2','Gás':'gas','C. Casa e Vídeo':'c_casavideo','C. Renner (Mãe)':'c_renner_mae','C. Renner (Meu)':'c_renner','C. Riachuelo':'c_riachuelo','C. Leroy Merlin':'c_leroy','C. Caixa Elo':'c_elo','C. Caixa Visa':'c_visa','Cartão Neon':'c_neon','PagBank roh':'c_pagbank','C. Magazine Luiza':'c_magalu','Cartão mais':'c_mais','C. Itaú':'c_itau','Emp siemp':'emp'};
+const PL_EXTRA={'FCLRJ':['Rodrigo','Casa e clínica','Educação'],'fcl set':['Rodrigo','Casa e clínica','Educação'],'Yoga':['Rodrigo','Casa e clínica','Lazer'],'Marcondes':['Clínica','Casa e clínica','Casa e clínica'],'Aluguel 403':['Casa','Casa e clínica','Casa e clínica'],'Aluguel 1':['Casa','Casa e clínica','Casa e clínica'],'Aluguel 2':['Casa','Casa e clínica','Casa e clínica'],'Impostos Set':['Clínica','Impostos','Impostos'],'Jurus cheque e':['Rodrigo','Limites e empréstimo','Juros'],'Salário Doug':['Douglas','Contas do Douglas','Outros'],'Neon Douglas':['Douglas','Contas do Douglas','Dívidas e empréstimos'],'Impostos':['Clínica','Impostos','Impostos'],'Imposto/out':['Clínica','Impostos','Impostos']};
+async function importarPlanilha(file){
+  try{
+    const R=parseCsv(await file.text());if(R.length<2)throw new Error('Planilha vazia');
+    const H=R[0].map(x=>nrm(x)),col=(...ns)=>H.findIndex(h=>ns.some(n=>h.startsWith(nrm(n))));
+    if(col('Competência')>=0&&col('Conta')>=0)return planilhaContas(R,H,col);
+    if(col('Data')>=0&&col('Valor')>=0&&col('Tipo')>=0)return planilhaExtrato(R,col,file.name);
+    throw new Error('Não reconheci as colunas. Para contas: Competência; Conta; Valor; Status; Vencimento. Para extrato: Data; Descrição; Valor; Tipo (Recebido ou Pagamento).');
+  }catch(e){modal('<h3>Não consegui ler a planilha</h3><p>'+esc(e.message)+'</p><button class="b" data-a="close">Entendi</button>')}
+}
+function planilhaExtrato(R,col,nome){
+  const iD=col('Data'),iDs=col('Descrição','Descricao'),iV=col('Valor'),iT=col('Tipo'),iB=col('Banco');
+  const rows=[];
+  R.slice(1).forEach(r=>{let d=(r[iD]||'').trim();const m=d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(m)d=m[3]+'-'+m[2]+'-'+m[1];if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return;
+    const v=numBR(r[iV]);if(!v)return;const t=nrm(r[iT]);const dir=/^(rec|ent|cred|in)/.test(t)?'in':/^(pag|sai|deb|out)/.test(t)?'out':null;if(!dir)return;
+    rows.push({date:d,desc:(r[iDs]||'').trim(),amount:Math.abs(v),dir,banco:iB>=0?(r[iB]||'').trim():''})});
+  if(!rows.length)throw new Error('Nenhuma linha válida (data, valor e tipo).');
+  const b=rows.find(r=>r.banco);
+  if(b)return previewImport(b.banco,nome,rows,0);
+  modal('<h3>De qual banco é este extrato?</h3><button class="b" data-a="plBanco" data-b="Caixa">Caixa</button> <button class="b" data-a="plBanco" data-b="Itaú">Itaú</button> <button class="b g" data-a="close">Cancelar</button>');
+  window._plRows=rows;window._plNome=nome;
+}
+function planilhaContas(R,H,col){
+  const iM=col('Competência'),iC=col('Conta'),iV=col('Valor'),iS=col('Status','Situação'),iD=col('Vencimento');
+  const usados=new Set(),cnt={},plano=[];let ign=0;
+  R.slice(1).forEach(r=>{
+    const mes=(r[iM]||'').trim(),nome=(r[iC]||'').trim();if(!/^\d{4}-\d{2}$/.test(mes)||!nome)return;
+    if(/^limite/i.test(nome)){ign++;return}
+    const v=numBR(r[iV]);const st=(r[iS]||'').trim();const pago=/^pago/i.test(st);
+    const k=mes+'|'+nome;cnt[k]=(cnt[k]||0)+1;const n=cnt[k];
+    let key=PL_ALIAS[nome];if(nome==='Impostos')key='imp'+n;if(nome==='Imposto/out')key='impout'+n;
+    const mid=key?'m_'+key:null,modelo=mid?state.modelos.find(m=>m.id===mid):null;
+    let ex=state.tx.find(t=>t.origin==='conta'&&live(t)&&!usados.has(t.id)&&t.date.slice(0,7)===mes&&((mid&&t.modeloId===mid)||nrm(t.desc)===nrm(nome)||(key&&t.id==='n11_'+key)));
+    if(!v&&!ex&&!(modelo&&modelo.cardId&&mes===state.month)){ign++;return}
+    const dd=(r[iD]||'').trim();const dia=/^\d{1,2}$/.test(dd)?+dd:(ex?+ex.date.slice(8):(modelo&&modelo.dia)||10);
+    const date=dueDate(mes,dia);
+    if(ex){usados.add(ex.id);plano.push({tipo:'att',id:ex.id,nome,v:v||ex.amount,pago,date:ex.date,mes});return}
+    const ext=PL_EXTRA[nome];
+    const dono=modelo?modelo.dono:ext?ext[0]:'Casa',grupo=modelo?modelo.grupo:ext?ext[1]:'Casa e clínica',cat=ext?ext[2]:catDoGrupo(grupo);
+    const nconf=/^n[aã]o confirmado/i.test(st);
+    plano.push({tipo:'new',id:'h_'+mes.replace('-','')+'_'+nrm(nome)+n,nome,v:v||0,pago,date,mes,dono,grupo,cat,card:modelo?modelo.cardId||null:null,mid:modelo?mid:null,nconf});
+  });
+  if(!plano.length)throw new Error('Nenhuma conta nova para lançar.');
+  window._plano=plano;
+  const nn=plano.filter(x=>x.tipo==='new').length,na=plano.length-nn,pg=plano.filter(x=>x.pago).length,nc=plano.filter(x=>x.nconf).length;
+  const meses=[...new Set(plano.map(x=>x.mes))].sort().map(monthLabel).join(', ');
+  modal(`<h3>Planilha de contas</h3><p>Meses: <b>${meses}</b></p><p><b>${nn}</b> contas novas · <b>${na}</b> já existiam (serão atualizadas: valor e situação)<br><b>${pg}</b> pagas · <b>${plano.length-pg}</b> a pagar${nc?`<br><span class="note">${nc} sem confirmação na planilha ficam como "a pagar" com uma observação.</span>`:''}${ign?`<br><span class="note">${ign} linha(s) ignoradas (limites de crédito ou sem valor).</span>`:''}</p>
+  <button class="b" id="plGo">Lançar no app</button> <button class="b g" data-a="close">Cancelar</button>`);
+  $('#plGo').onclick=async()=>{
+    for(const x of window._plano){
+      if(x.tipo==='att'){const o={id:x.id,amount:x.v,status:x.pago?'pago':'pendente'};const cur=state.tx.find(t=>t.id===x.id);o.paidDate=x.pago?((cur&&cur.paidDate)||x.date):'';await save('tx',o)}
+      else await save('tx',{id:x.id,kind:'out',desc:x.nome,amount:x.v,date:x.date,status:x.pago?'pago':'pendente',category:x.cat,dono:x.dono,grupo:x.grupo,origin:'conta',paidDate:x.pago?x.date:'',cardId:x.card,modeloId:x.mid,obs:x.nconf?'Situação não confirmada na planilha':undefined,createdAt:new Date().toISOString()})}
+    closeModal();render();toast(window._plano.length+' conta(s) lançada(s)')};
 }
 
 /* ---------- importação incremental de extrato ---------- */
@@ -965,6 +1035,7 @@ const A={
     modal(`<h3>Fatura — ${esc(c.name)}</h3><label class="f">Valor da fatura (R$)</label><input id="fV" inputmode="decimal"><label class="f">Vencimento</label><input id="fT" type="date" value="${base}-${dia}"><label class="f">Situação</label><select id="fS"><option value="pendente">Não paga</option><option value="pago">Paga</option></select><button class="b" id="fOk">Salvar</button> <button class="b g" data-a="close">Cancelar</button>`);
     $('#fOk').onclick=async()=>{const v=num($('#fV').value);if(!v)return toast('Informe o valor');
       await save('tx',{kind:'out',desc:'Fatura '+c.name,amount:v,date:$('#fT').value,status:$('#fS').value,category:'Cartão',cardId:c.id,origin:'cartao',createdAt:new Date().toISOString()});closeModal();render()}},
+  plBanco:d=>{previewImport(d.b,window._plNome,window._plRows,0)},
   limparContas:()=>{const L=state.tx.filter(t=>t.origin==='conta'||t.origin==='cartao'||t.cardId);if(!L.length){toast('Não há contas nem faturas para apagar');return}
     confirmBox(`Apagar ${L.length} conta(s) e fatura(s)? O extrato e os lançamentos feitos à mão ficam. Não dá para desfazer (só importando um backup).`,async()=>{const now=Date.now();L.forEach(t=>{STORE.tx[t.id]={id:t.id,_d:true,_u:now}});persist();loadState();agendarSync();render();toast(L.length+' apagado(s)')})},
   delCard:d=>confirmBox('Excluir este cartão? As faturas dele continuam nos lançamentos.',async()=>{await remove('cards',d.id);render()}),
@@ -1056,7 +1127,7 @@ document.addEventListener('change',e=>{
   if(t.dataset.a==='imp')A.imp({i:t.dataset.i,checked:t.checked});
   if(t.dataset.a==='impVal'){const r=window._imp.rows[+t.dataset.i];const v=Math.abs(+String(t.value).replace(',','.'));if(v){r.amount=v;r.aviso=false;r.skip=false;r.editado=true;const cb=document.querySelector('[data-a="imp"][data-i="'+t.dataset.i+'"]');if(cb)cb.checked=true;updImpCount();toast('Valor ajustado e linha marcada.');}}
   if(t.dataset.a==='impAll')A.impAll({checked:t.checked});
-  if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='cartoesPdf')readCartoes(f);if(k==='backup'){f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
+  if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='cartoesPdf')readCartoes(f);if(k==='planilha')importarPlanilha(f);if(k==='backup'){f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
 });
 boot();
 </script>
