@@ -293,8 +293,10 @@ const inMonth=t=>(t.date||'').slice(0,7)===state.month;
 function sums(){
   const L=state.tx.filter(inMonth).filter(live);
   const S=(f)=>L.filter(f).reduce((a,t)=>a+(+t.amount||0),0);
-  const ent=S(t=>t.kind==='in'&&t.status==='pago'),sai=S(t=>t.kind==='out'&&t.status==='pago'),pen=S(t=>t.kind==='out'&&t.status==='pendente');
-  const cat={};L.filter(t=>t.kind==='out'&&t.status==='pago').forEach(t=>{const c=t.category||'Outros';cat[c]=(cat[c]||0)+(+t.amount||0)});
+  /* Saiu = só o que saiu do banco (extratos) e lançamentos feitos à mão. Contas a pagar e faturas ficam na lista de contas, sem somar aqui. */
+  const saiu=t=>t.kind==='out'&&t.status==='pago'&&t.origin!=='conta'&&t.origin!=='cartao';
+  const ent=S(t=>t.kind==='in'&&t.status==='pago'),sai=S(saiu),pen=S(t=>t.kind==='out'&&t.status==='pendente');
+  const cat={};L.filter(saiu).forEach(t=>{const c=t.category||'Outros';cat[c]=(cat[c]||0)+(+t.amount||0)});
   return{ent,sai,pen,saldo:ent-sai,cat,n:L.length};
 }
 const cfg=id=>state.config.find(c=>c.id===id)||{};
@@ -307,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14u';
+const APP_VER='2026-11-14v';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -401,13 +403,15 @@ function painelFin(s){
   const notaTr=transf.length?`<p class="note">${transf.length} transferência(s) entre contas próprias (${brl(soma(transf))}) ficam de fora desta soma.</p>`:'';
   let corpo='';
   if(k==='ent'||k==='sai'){
-    const X=L.filter(t=>t.kind===(k==='ent'?'in':'out')&&t.status==='pago');
-    const dc=X.filter(t=>t.origin!=='extrato'),de=X.filter(t=>t.origin==='extrato');
+    const X=L.filter(t=>t.kind===(k==='ent'?'in':'out')&&t.status==='pago'&&(k==='ent'||(t.origin!=='conta'&&t.origin!=='cartao')));
+    const de=X.filter(t=>t.origin==='extrato'),dm=X.filter(t=>t.origin!=='extrato');
     const sec=(tit,expl,Y)=>Y.length?`<div style="margin-top:10px"><b>${tit} — ${brl(soma(Y))}</b><div class="note">${expl}</div>${ord(Y).map(t=>mov(t,k==='ent'?'in':'out')).join('')}</div>`:'';
-    corpo=`<b>${k==='ent'?'Total que entrou':'Total que saiu'}: ${brl(soma(X))}</b><p class="note">Esse total é a soma de duas partes. Se um mesmo pagamento aparecer nas duas, ele é contado dobrado: use <b>Extratos › Conferir duplicidades</b>.</p>`+
-      (k==='sai'?sec('1) Contas que você marcou como pagas',`${dc.length} lançamento(s) das Contas (planilha). Não vêm do banco.`,dc):'')+
-      sec(k==='sai'?'2) Saídas que vieram do extrato do banco':'Entradas que vieram do extrato do banco',`${de.length} lançamento(s) lidos do PDF.`,de)+
-      (k==='ent'&&!X.length?'<p class="note">Nada neste mês.</p>':'')+notaTr;
+    const pagas=k==='sai'?L.filter(t=>t.kind==='out'&&t.status==='pago'&&(t.origin==='conta'||t.origin==='cartao')):[];
+    corpo=`<b>${k==='ent'?'Total que entrou':'Total que saiu'}: ${brl(soma(X))}</b><p class="note">${k==='sai'?'Conta só o que aparece nos <b>extratos do banco</b> (e o que você lançou à mão). As contas a pagar e as faturas ficam na aba Contas e não somam aqui, para nada ser contado duas vezes.':'Entradas lidas dos extratos do banco e lançadas à mão.'}</p>`+
+      sec(k==='sai'?'Saídas do extrato do banco':'Entradas do extrato do banco',`${de.length} lançamento(s) lidos dos extratos.`,de)+
+      sec('Lançados à mão',`${dm.length} lançamento(s) feitos por você.`,dm)+
+      (pagas.length?`<p class="note" style="margin-top:12px">Fora desta soma: ${pagas.length} conta(s)/fatura(s) marcadas como pagas na aba Contas (${brl(soma(pagas))}).</p>`:'')+
+      (!X.length?'<p class="note">Nada neste mês.</p>':'')+notaTr;
   }else if(k==='pen'){
     const X=L.filter(t=>t.kind==='out'&&t.status==='pendente').sort((a,b)=>a.date.localeCompare(b.date));
     corpo=`<b>Ainda falta pagar — ${brl(soma(X))}</b>${X.map(t=>mov(t,'pend')).join('')||'<p class="note">Tudo pago. 🎉</p>'}`;
