@@ -203,7 +203,29 @@ function importarBackup(txt){
 function toast(m){const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:9px 14px;border-radius:9px;z-index:50;font-size:14px';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
 async function boot(){
   aplicarTema();loadState();render();setStatus();
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(r=>{window._swReg=r}).catch(()=>{});
+  /* Atualização automática: confere se há versão nova ao abrir, ao voltar para o app e a cada 10 min */
+  const APP_VER='2026-11-14a';
+  let _avisou=false;
+  async function checarVersao(){
+    if(_avisou||!navigator.onLine)return;
+    try{
+      if(window._swReg)window._swReg.update().catch(()=>{});
+      const t=await (await fetch('index.html?v='+Date.now(),{cache:'no-store'})).text();
+      const m=t.match(/APP_VER='([^']+)'/);
+      if(m&&m[1]!==APP_VER){
+        _avisou=true;
+        const b=document.createElement('div');
+        b.style.cssText='position:fixed;left:12px;right:12px;bottom:16px;z-index:99999;background:#0b3d2e;color:#fff;padding:12px 14px;border-radius:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 4px 16px rgba(0,0,0,.35);font:15px system-ui';
+        b.innerHTML='<span>Nova versão do app disponível.</span><button style="background:#d4af37;color:#000;border:0;border-radius:8px;padding:8px 14px;font-weight:700">Atualizar</button>';
+        b.querySelector('button').onclick=()=>{location.reload()};
+        document.body.appendChild(b);
+      }
+    }catch(e){}
+  }
+  setTimeout(checarVersao,4000);
+  setInterval(checarVersao,600000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checarVersao()});
   if(syncPronto()&&LS.get('mf_gconn',0))syncNow(false);
   setInterval(()=>{if(!document.hidden)syncNow(false)},60000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNow(false)});
