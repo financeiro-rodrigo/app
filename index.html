@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14zzz';
+const APP_VER='2026-11-14zzzz';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -553,7 +553,7 @@ function vCartoes(){
   const total=open.reduce((a,t)=>a+t.amount,0);
   const cards=[...state.cards].sort((x,y)=>(x.name||'').localeCompare(y.name||''));
   return`<div class="card"><div class="k">Faturas em aberto (todos os cartões)</div><div class="v pend">${brl(total)}</div></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="newCard">+ Novo cartão</button><label class="b">Enviar PDF dos cartões<input type="file" accept="application/pdf,.pdf,image/*" data-a="cartoesPdf" hidden></label></div>`+cards.map(c=>{
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="newCard">+ Novo cartão</button><label class="b">Escolher PDF dos cartões<input type="file" accept="application/pdf,.pdf" data-a="cartoesPdf" hidden></label><label class="b g">Foto ou print<input type="file" accept="image/*" data-a="cartoesPdf" hidden></label></div>`+cards.map(c=>{
     const F=state.tx.filter(t=>t.cardId===c.id).sort((a,b)=>b.date.localeCompare(a.date));
     const ab=F.filter(t=>t.status==='pendente').reduce((a,t)=>a+t.amount,0);
     const ainf=F.filter(t=>t.status==='pendente'&&!t.amount).length;
