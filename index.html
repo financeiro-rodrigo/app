@@ -95,7 +95,7 @@ const JUR=/JUROS|ENCARGO|\bMORA\b|MULTA|CHEQUE ESPECIAL/i;
 const OWN=/RODRIGO\s+G(OMES)?(\s+B(O|OR|ORG|ORGE|ORGES)?)?\s*$|RODRIGO\s+GOMES\s+B|RODRIGO\s+G\s+BORGES|CLINICA PSICOLOGICA RODRIGO|RODRIGOGBORGES|DOUGLAS\s+IGOR\s+MARQ/i;
 const autoCat=(desc,dir)=>TAX.test(desc)?'Impostos':JUR.test(desc)?'Juros':(dir!=='in'&&TARF.test(desc))?'Tarifas bancárias':dir==='in'?'Atendimentos':'Outros';
 
-const state={tx:[],cards:[],goals:[],imports:[],config:[],notes:[],modelos:[],csub:'mes',cview:'venc',resOpen:'',catOpen:'',pagasOpen:false,open:new Set(),tab:'resumo',sub:'div',month:localToday().slice(0,7)};
+const state={cmode:'falta',tx:[],cards:[],goals:[],imports:[],config:[],notes:[],modelos:[],csub:'mes',cview:'venc',resOpen:'',catOpen:'',pagasOpen:false,open:new Set(),tab:'resumo',sub:'div',month:localToday().slice(0,7)};
 
 /* ---------- dados: guardados no aparelho e sincronizados com o Google Drive ---------- */
 const COLS=['tx','cards','goals','imports','config','notes','modelos'];
@@ -281,7 +281,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14k';
+const APP_VER='2026-11-14l';
 const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
@@ -359,24 +359,28 @@ function vContasMes(){
   const faltam=state.modelos.filter(m=>m.ativo!==false&&!L.some(t=>t.modeloId===m.id)).length;
   const pend=L.filter(t=>t.status!=='pago').sort((a,b)=>a.date.localeCompare(b.date)||a.desc.localeCompare(b.desc));
   const pagas=L.filter(t=>t.status==='pago').sort((a,b)=>(b.paidDate||'').localeCompare(a.paidDate||''));
-  const v=state.cview;
+  const v=state.cview,mode=state.cmode||'falta';
+  const todas=[...L].sort((a,b)=>a.date.localeCompare(b.date)||a.desc.localeCompare(b.desc));
+  const base=mode==='pago'?pagas:mode==='total'?todas:pend;
+  const titulo={falta:'Falta pagar',pago:'Já pago',total:'Todas as contas do mês'}[mode];
+  const vazio={falta:'Tudo pago neste mês. 🎉',pago:'Nenhuma conta paga ainda neste mês.',total:'Nenhuma conta neste mês.'}[mode];
   const sel=`<div class="tabs">${[['venc','Vencimento'],['tipo','Tipo'],['pessoa','Pessoa']].map(([k,n])=>`<button class="${v===k?'on':''}" data-a="cview" data-k="${k}">${n}</button>`).join('')}</div>`;
   let corpo='';
-  if(v==='venc'){corpo=`<div class="card"><div style="display:flex;justify-content:space-between"><b>Falta pagar</b><span class="note">${pend.length} conta(s)</span></div>${pend.map(contaRow).join('')||'<p class="note">Tudo pago neste mês. 🎉</p>'}</div>`}
+  if(v==='venc'){corpo=`<div class="card"><div style="display:flex;justify-content:space-between"><b>${titulo}</b><span class="note">${base.length} conta(s)</span></div>${base.map(contaRow).join('')||`<p class="note">${vazio}</p>`}</div>`}
   else{
     const key=t=>v==='tipo'?(t.grupo||'Outros'):(t.dono||'Casa');
     const ordem=v==='tipo'?GRUPOS:DONOS;
-    const chaves=[...new Set([...ordem,...pend.map(key)])];
-    corpo=chaves.map(g=>{const X=pend.filter(t=>key(t)===g);if(!X.length)return'';
+    const chaves=[...new Set([...ordem,...base.map(key)])];
+    corpo=chaves.map(g=>{const X=base.filter(t=>key(t)===g);if(!X.length)return'';
       const f=X.reduce((a,t)=>a+(+t.amount||0),0);
-      return`<div class="card"><div style="display:flex;justify-content:space-between"><b>${esc(g)}</b><span class="note">falta ${brl(f)}</span></div>${X.map(contaRow).join('')}</div>`}).join('')||'<div class="card"><p class="note">Tudo pago neste mês. 🎉</p></div>';
+      return`<div class="card"><div style="display:flex;justify-content:space-between"><b>${esc(g)}</b><span class="note">${mode==='falta'?'falta ':mode==='pago'?'pago ':'total '}${brl(f)}</span></div>${X.map(contaRow).join('')}</div>`}).join('')||`<div class="card"><p class="note">${vazio}</p></div>`;
   }
-  const pagasH=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center" data-a="pagas"><b>Pagas (${pagas.length}) — ${brl(pg)}</b><span class="note">${state.pagasOpen?'recolher ▲':'mostrar ▼'}</span></div>${state.pagasOpen?pagas.map(contaRow).join(''):''}</div>`;
+  const tile=(k,rot,val,cls,nota)=>`<div class="card" data-a="cmode" data-k="${k}" style="cursor:pointer;${mode===k?'border-color:var(--pri);box-shadow:0 0 0 1px var(--pri) inset':''}"><div class="k">${rot} ${mode===k?'▼':'▸'}</div><div class="v ${cls}">${val}</div><div class="note">${nota}</div></div>`;
   const to=ME?outroDe(ME):'';
-  return monthNav()+`<div class="grid"><div class="card"><div class="k">Total de contas do mês</div><div class="v">${brl(tot)}</div><div class="note">tudo que vence em ${monthLabel(state.month)}</div></div><div class="card"><div class="k">Já pago</div><div class="v in">${brl(pg)}</div><div class="note">contas deste mês quitadas</div></div></div>
-  <div class="card"><div class="k">Falta pagar</div><div class="v pend">${brl(tot-pg)}</div><div class="note">total de contas − já pago</div></div>
+  return monthNav()+`<div class="grid">${tile('total','Total de contas do mês',brl(tot),'','toque para ver todas')}${tile('pago','Já pago',brl(pg),'in','toque para ver as pagas')}</div>
+  ${tile('falta','Falta pagar',brl(tot-pg),'pend','toque para ver as que faltam')}
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">${faltam?`<button class="b" data-a="gerar">Criar ${faltam} conta(s) fixa(s) do mês</button>`:''}<label class="b g">Ler conta (PDF)<input type="file" accept="application/pdf,.pdf" data-a="conta" hidden></label><label class="b g">Ler conta (foto)<input type="file" accept="image/*" data-a="conta" hidden></label><button class="b g" data-a="new" data-kind="out" data-pend="1">+ Manual</button><a class="s wa" href="${waUrl(textoResumo(),to)}" target="_blank" rel="noopener" style="padding:10px 12px">Enviar resumo no WhatsApp</a></div>
-  ${sel}${corpo}${pagasH}`;
+  ${sel}${corpo}`;
 }
 function vFixas(){
   return`<button class="b" data-a="newModelo">+ Conta fixa</button><p class="note">Essas são as contas que se repetem todo mês. O app cria o mês a partir delas; você só ajusta o valor e marca como paga.</p>`+
@@ -857,6 +861,7 @@ const A={
     modal('<h3>🔍 Conferência de duplicidades</h3>'+(p.length?`<p><b>${p.length}</b> pagamento(s) apareciam <b>duas vezes</b> (na conta e no extrato) e agora contam só uma vez:</p><div style="max-height:46vh;overflow:auto">${p.map(([b,e])=>`<div class="row"><div class="rl"><b>${esc(b.desc)}</b><small>extrato: ${esc(e.desc)} · ${fd(e.date).slice(0,5)}</small></div><div class="rr out">${brl(b.amount)}</div></div>`).join('')}</div>`:'<p>Nenhuma duplicidade encontrada. Cada pagamento já conta uma vez só.</p>')+'<button class="b" data-a="close">Ok</button>');
   },
   desfazImp:d=>confirmBox('Desfazer esta importação? Os lançamentos dela saem do app, e as contas que ela quitou voltam a pendentes. Depois você pode importar o PDF de novo.',async()=>{await desfazerImport(d.id);render();toast('Importação desfeita')}),
+  cmode:d=>{state.cmode=d.k;render()},
   verResumo:()=>{closeModal();state.tab='resumo';if(window._impMes)state.month=window._impMes;render()},
   own:d=>{window._imp.rows[+d.i].own=d.checked},
   imp:d=>{window._imp.rows[+d.i].skip=!d.checked;updImpCount()},
