@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14zzzzz';
+const APP_VER='2026-11-14zzzzzz';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -463,7 +463,7 @@ function vContasMes(){
   const to=ME?outroDe(ME):'';
   return monthNav()+`<div class="grid">${tile('total','Total de contas do mês',brl(tot),'','toque para ver todas')}${tile('pago','Já pago',brl(pg),'in','toque para ver as pagas')}</div>
   ${tile('falta','Falta pagar',brl(tot-pg),'pend','toque para ver as que faltam')}
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">${faltam?`<button class="b" data-a="gerar">Criar ${faltam} conta(s) fixa(s) do mês</button>`:''}<label class="b g">Ler conta (PDF)<input type="file" accept="application/pdf,.pdf" data-a="conta" hidden></label><label class="b g">Ler conta (foto)<input type="file" accept="image/*" data-a="conta" hidden></label><label class="b g">Planilha (Excel/CSV)<input type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" data-a="planilha" hidden></label><button class="b g" data-a="new" data-kind="out" data-pend="1">+ Manual</button><a class="s wa" href="${waUrl(textoResumo(),to)}" target="_blank" rel="noopener" style="padding:10px 12px">Enviar resumo no WhatsApp</a></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">${faltam?`<button class="b" data-a="gerar">Criar ${faltam} conta(s) fixa(s) do mês</button>`:''}<label class="b g">Ler conta (PDF)<input type="file" accept="application/pdf,.pdf" data-a="conta" hidden></label><label class="b g">Ler conta (foto)<input type="file" accept="image/*" data-a="conta" hidden></label><label class="b g">Planilha (Excel/CSV)<input type="file" data-a="planilha" hidden></label><button class="b g" data-a="new" data-kind="out" data-pend="1">+ Manual</button><a class="s wa" href="${waUrl(textoResumo(),to)}" target="_blank" rel="noopener" style="padding:10px 12px">Enviar resumo no WhatsApp</a></div>
   ${sel}${corpo}`;
 }
 function vFixas(){
@@ -488,7 +488,7 @@ function vExtrato(){
   return`<div class="card"><b>Importar extrato</b>
   <p class="note">PDF, print ou planilha (Excel/CSV) do Itaú, da Caixa ou de outro banco. Antes de salvar, você vê quais movimentações são novas e quais já existem. Só as novas são acrescentadas.</p>
   <label class="f">Banco</label><select id="impBank">${banks().map(b=>`<option>${esc(b)}</option>`).join('')}</select><input id="impBankNew" placeholder="Outro banco? Digite o nome aqui (ex.: Nubank)">
-  <label class="b">Escolher PDF do extrato<input type="file" accept="application/pdf,.pdf" data-a="extrato" hidden></label> <label class="b g">Foto ou print<input type="file" accept="image/*" data-a="extrato" hidden></label> <label class="b g">Planilha (Excel/CSV)<input type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" data-a="planilhaExt" hidden></label></div>
+  <label class="b">Escolher PDF do extrato<input type="file" accept="application/pdf,.pdf" data-a="extrato" hidden></label> <label class="b g">Foto ou print<input type="file" accept="image/*" data-a="extrato" hidden></label> <label class="b g">Planilha (Excel/CSV)<input type="file" data-a="planilhaExt" hidden></label></div>
   <div class="card"><b>Conferência</b><p class="note">Se o mesmo pagamento aparece na conta e no extrato, o total fica dobrado. Este botão une os dois.</p><button class="b" data-a="conferir">🔍 Conferir duplicidades</button></div>
   <div class="card"><b>Importações feitas</b>${imps.map(i=>`<div class="row"><div class="rl"><b>${esc(i.bank)} · ${esc(i.fileName||'extrato')}</b><small>${new Date(i.createdAt).toLocaleString('pt-BR')}</small></div><div class="rr">${i.added} novas<small class="note" style="display:block">${i.skipped} já existiam</small><button class="s d" data-a="desfazImp" data-id="${i.id}">Desfazer</button></div></div>`).join('')||'<p class="note">Nenhuma importação ainda.</p>'}</div>`;
 }
@@ -540,9 +540,9 @@ function vCfg(){
   <button class="b" data-a="cfgIA">Salvar</button> <button class="b g" data-a="cfgTestar">Testar chave</button><p class="note">Versão do app: ${typeof APP_VER!=='undefined'?APP_VER:'?'}</p></div>
   <div class="card"><b>Backup dos dados</b>
   <p class="note">Baixe uma cópia ou traga os dados de outro lugar (por exemplo, do app antigo). Importar nunca apaga o que já existe.</p>
-  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="bkExport">Baixar backup</button><label class="b g">Importar arquivo<input type="file" accept="application/json,.json" data-a="backup" hidden></label><button class="b g" data-a="bkColar">Colar dados</button></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="bkExport">Baixar backup</button><label class="b g">Importar arquivo (.json, Excel ou CSV)<input type="file" data-a="backup" hidden></label><button class="b g" data-a="bkColar">Colar dados</button></div>
   <p class="note" style="margin-top:10px"><b>Planilha (Excel .xlsx ou CSV):</b> contas pagas e a pagar de qualquer mês, ou extrato com Recebidos e Pagamentos. Valores e situação já existentes são atualizados, sem duplicar.</p>
-  <label class="b">Importar planilha (Excel ou CSV)<input type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" data-a="planilha" hidden></label></div>
+  <label class="b">Importar planilha (Excel ou CSV)<input type="file" data-a="planilha" hidden></label></div>
   <div class="card"><b>Apagar contas e faturas</b>
   <p class="note">Apaga de uma vez todas as contas a pagar e as faturas de cartão (pagas e pendentes). Não mexe no extrato, nos lançamentos que você fez à mão, nem nos cartões cadastrados. Dica: baixe o backup antes.</p>
   <button class="b g" data-a="limparContas" style="border-color:#c0392b;color:#c0392b">Apagar contas e faturas</button></div>
@@ -1159,7 +1159,7 @@ document.addEventListener('change',e=>{
   if(t.dataset.a==='imp')A.imp({i:t.dataset.i,checked:t.checked});
   if(t.dataset.a==='impVal'){const r=window._imp.rows[+t.dataset.i];const v=Math.abs(+String(t.value).replace(',','.'));if(v){r.amount=v;r.aviso=false;r.skip=false;r.editado=true;const cb=document.querySelector('[data-a="imp"][data-i="'+t.dataset.i+'"]');if(cb)cb.checked=true;updImpCount();toast('Valor ajustado e linha marcada.');}}
   if(t.dataset.a==='impAll')A.impAll({checked:t.checked});
-  if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='cartoesPdf')readCartoes(f);if(k==='planilha'){window._plBancoSel=null;importarPlanilha(f)}if(k==='planilhaExt'){window._plBancoSel=($('#impBankNew').value.trim()||$('#impBank').value);importarPlanilha(f)}if(k==='backup'){f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
+  if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='cartoesPdf')readCartoes(f);if(k==='planilha'){window._plBancoSel=null;importarPlanilha(f)}if(k==='planilhaExt'){window._plBancoSel=($('#impBankNew').value.trim()||$('#impBank').value);importarPlanilha(f)}if(k==='backup'){if(/\.(csv|xlsx?)$/i.test(f.name))importarPlanilha(f);else f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
 });
 boot();
 </script>
