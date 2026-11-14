@@ -241,6 +241,9 @@ async function boot(){
       const t=await (await fetch('index.html?v='+Date.now(),{cache:'no-store'})).text();
       const m=t.match(new RegExp('const APP_'+'VER=\'([^\']+)\''));
       if(m&&m[1]!==APP_VER){
+        const ocupado=document.querySelector('#modal .modal')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
+        const kk='mf_auto_'+m[1];let ja=false;try{ja=sessionStorage.getItem(kk)}catch(e){}
+        if(!ocupado&&!ja){try{sessionStorage.setItem(kk,'1')}catch(e){}location.reload();return}
         _avisou=true;
         const b=document.createElement('div');
         b.style.cssText='position:fixed;left:12px;right:12px;top:12px;z-index:99999;background:#0b3d2e;color:#fff;padding:12px 14px;border-radius:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 4px 16px rgba(0,0,0,.35);font:15px system-ui';
@@ -278,7 +281,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14i';
+const APP_VER='2026-11-14j';
 const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
@@ -642,13 +645,13 @@ function previewImport(bank,fileName,rows){
   const nNew=rows.filter(r=>r.isNew).length;
   modal(`<h3>Prévia — ${esc(bank)}</h3><p><b>${nNew}</b> novas · <b>${rows.length-nNew}</b> já existiam (não serão acrescentadas).</p>
   <p class="note">Transferências entre suas contas (e com o Douglas) ficam fora de "entrou" e "saiu". O app marca sozinho quando acha o outro lado em outro banco; desmarque "Própria" se não for.</p>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><button class="b g" data-a="impTodas" data-v="1">✔ Marcar todas</button><button class="b g" data-a="impTodas" data-v="0">Desmarcar todas</button></div><p class="note">Todas as novas já vêm marcadas. Desmarque só as que <b>não</b> quer acrescentar.</p>
+  <label style="display:flex;align-items:center;gap:12px;margin:12px 0;font-size:17px;font-weight:700"><input type="checkbox" id="impAll" data-a="impAll" checked style="width:auto;margin:0;transform:scale(1.6)"> Selecionar todas</label><p class="note">Todas as novas já vêm marcadas. Desmarque uma a uma só as que <b>não</b> quer acrescentar. Tocando em "Selecionar todas" você desmarca ou marca tudo de uma vez.</p>
   <table><tr><th>Importar</th><th>Data</th><th>Descrição</th><th class="n">Valor</th><th>Própria</th></tr>
   ${rows.map((r,i)=>`<tr style="${r.isNew?'':'opacity:.45'}"><td>${r.isNew?`<input type="checkbox" data-a="imp" data-i="${i}" ${r.skip?'':'checked'} style="width:auto;margin:0;transform:scale(1.4)"> <span class="chip">nova</span>`:'<span class="chip">já existe</span>'}</td><td>${fd(r.date)}</td><td>${esc(r.desc)}<br><small class="note">${esc(r.cat)}${r.pair?' · <b>par encontrado em '+esc(r.parInfo)+'</b>':''}</small></td><td class="n ${r.dir}">${r.dir==='in'?'+':'−'}${brl(r.amount)}</td><td>${r.isNew?`<input type="checkbox" data-a="own" data-i="${i}" ${r.own?'checked':''} style="width:auto;margin:0">`:''}</td></tr>`).join('')}</table><br>
   <button class="b" id="impGo" ${nNew?'':'disabled'}>Acrescentar ${nNew} nova(s)</button> <button class="b g" data-a="close">Cancelar</button>`);
   $('#impGo').onclick=confirmImport;
 }
-function updImpCount(){const n=window._imp.rows.filter(r=>r.isNew&&!r.skip).length;const b=$('#impGo');if(b){b.textContent='Acrescentar '+n+' nova(s)';b.disabled=!n}}
+function updImpCount(){const nn=window._imp.rows.filter(r=>r.isNew);const n=nn.filter(r=>!r.skip).length;const ca=$('#impAll');if(ca)ca.checked=n===nn.length&&n>0;const b=$('#impGo');if(b){b.textContent='Acrescentar '+n+' nova(s)';b.disabled=!n}}
 async function confirmImport(){
   const{bank,fileName,rows}=window._imp;const novas=rows.filter(r=>r.isNew&&!r.skip);
   const impId='imp_'+uid(),now=new Date().toISOString();
@@ -667,7 +670,11 @@ async function confirmImport(){
   }
   await save('imports',{id:impId,bank,fileName,createdAt:now,added:novas.length,skipped:rows.length-novas.length});
   closeModal();render();
-  toast(`${novas.length} acrescentadas`+(quitadas.length?` · ${quitadas.length} conta(s) quitada(s)`:'')+(pareadas?` · ${pareadas} transferência(s) entre contas`:''));
+  const ent=novas.filter(r=>r.dir==='in'&&!r.own).reduce((a,r)=>a+r.amount,0),sai=novas.filter(r=>r.dir==='out'&&!r.own).reduce((a,r)=>a+r.amount,0),nTr=novas.filter(r=>r.own).length;
+  const meses=novas.map(r=>r.date.slice(0,7)).sort();window._impMes=meses[meses.length-1]||state.month;
+  modal(`<h3>✅ Extrato importado</h3><p><b>${novas.length}</b> movimentações acrescentadas e salvas no Drive.</p>
+  <p>Entrou: <b class="in">${brl(ent)}</b><br>Saiu: <b class="out">${brl(sai)}</b>${nTr?`<br><span class="note">${nTr} transferência(s) entre contas próprias ficaram de fora dos totais.</span>`:''}${quitadas.length?`<br><span class="note">${quitadas.length} conta(s) a pagar marcada(s) como paga(s).</span>`:''}</p>
+  <button class="b" data-a="verResumo">Ver o Resumo</button> <button class="b g" data-a="close">Fechar</button>`);
 }
 
 /* ---------- cofre: criptografado no aparelho (AES-GCM + senha mestra); o servidor só guarda texto cifrado, em área privada de cada pessoa ---------- */
@@ -824,15 +831,17 @@ const A={
   delGoal:d=>confirmBox('Excluir esta meta?',async()=>{await remove('goals',d.id);render()}),
   dedupe:d=>{const g=dupGroups()[+d.i];if(!g)return;
     confirmBox(`Remover ${g.extra} registro(s) excedente(s) de ${esc(g.arr[0].bank)} em ${fd(g.arr[0].date)}, ${brl(g.arr[0].amount)}? Ficam os mais antigos.`,async()=>{for(const t of g.toRemove)await remove('tx',t.id);render()})},
+  verResumo:()=>{closeModal();state.tab='resumo';if(window._impMes)state.month=window._impMes;render()},
   own:d=>{window._imp.rows[+d.i].own=d.checked},
   imp:d=>{window._imp.rows[+d.i].skip=!d.checked;updImpCount()},
-  impTodas:d=>{const on=d.v==='1';window._imp.rows.forEach(r=>{if(r.isNew)r.skip=!on});document.querySelectorAll('input[data-a="imp"]').forEach(c=>{c.checked=on});updImpCount()},
+  impAll:d=>{const on=d.checked;window._imp.rows.forEach(r=>{if(r.isNew)r.skip=!on});document.querySelectorAll('input[data-a="imp"]').forEach(c=>{c.checked=on});updImpCount()},
 };
 document.addEventListener('click',e=>{resetLock();const t=e.target.closest('[data-a]');if(!t||t.tagName==='INPUT')return;if(t.tagName==='A')e.preventDefault();const f=A[t.dataset.a];if(f)f(t.dataset)});
 document.addEventListener('change',e=>{
   const t=e.target;if(!t.dataset||!t.dataset.a)return;
   if(t.dataset.a==='own')A.own({i:t.dataset.i,checked:t.checked});
   if(t.dataset.a==='imp')A.imp({i:t.dataset.i,checked:t.checked});
+  if(t.dataset.a==='impAll')A.impAll({checked:t.checked});
   if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='backup'){f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
 });
 boot();
