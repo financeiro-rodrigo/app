@@ -73,9 +73,9 @@ header.hdr{position:relative;display:block;padding:0;height:178px;background:lin
 .hdr .knot{height:74px;display:block;margin:0 auto -4px;filter:drop-shadow(0 2px 6px #0008)}
 .hdr h1{font:600 34px/1.1 Georgia,'Times New Roman',serif;background:linear-gradient(180deg,#fff6d6,#e8c25a 60%,#b98a22);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 4px #000a);margin:0}
 .hdr .orn{display:block;width:min(70%,330px);height:1px;margin:5px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
-.hdr .logos{position:absolute;right:8px;top:8px;height:64px;filter:drop-shadow(0 0 6px #000) drop-shadow(0 0 3px #000)}
+.hdr .logos{position:absolute;right:8px;top:8px;height:82px;filter:drop-shadow(0 0 6px #000) drop-shadow(0 0 3px #000)}
 .hdr .sync{position:absolute;right:12px;bottom:8px;font-size:11px;background:rgba(6,36,26,.6);padding:2px 8px;border-radius:10px}
-@media(max-width:560px){.hdr{height:150px}.hdr .knot{height:58px}.hdr h1{font-size:27px}.hdr .logos{display:none}.hdr .sync{bottom:auto;top:22px}}
+@media(max-width:560px){.hdr{height:150px}.hdr .knot{height:58px}.hdr h1{font-size:27px}.hdr .logos{height:46px;right:6px;top:10px}}
 .card,.tile,.modal>div{background:var(--glass);border-color:var(--bd);box-shadow:0 2px 10px #0006}
 html[data-tema=claro] .card,html[data-tema=claro] .tile,html[data-tema=lavanda] .card,html[data-tema=lavanda] .tile{background:var(--card);box-shadow:none}
 .card,.tile{border-radius:18px;border-width:1.5px}
@@ -120,7 +120,7 @@ button.b,label.b{border-radius:22px}
 </style>
 </head>
 <body>
-<header class="hdr"><button class="menu" data-a="tab" data-k="mais" aria-label="Menu">☰</button><div class="brand"><img class="knot" src="no.png" alt=""><h1>Meu Financeiro</h1><i class="orn"></i></div><img class="logos" src="logos.png" alt=""><span id="sync" class="sync" data-a="syncAgora" style="cursor:pointer">conectando…</span></header>
+<header class="hdr"><button class="menu" data-a="tab" data-k="mais" aria-label="Menu">☰</button><div class="brand"><img class="knot" src="no.png" alt=""><h1>Meu Financeiro</h1><i class="orn"></i></div><img class="logos" src="logos.png" alt="Rodrigo Borges, Psicólogo e psicanalista — Impacto Gestão RH"><span id="sync" class="sync" data-a="syncAgora" style="cursor:pointer">conectando…</span></header>
 <main id="view"></main>
 <nav id="nav"></nav>
 <div id="modal"></div>
@@ -307,7 +307,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14o';
+const APP_VER='2026-11-14p';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
