@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14v';
+const APP_VER='2026-11-14w';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -654,13 +654,27 @@ async function fileContent(file){
     text+='\n';
   }
   if(text.replace(/\s/g,'').length>80)return{text:text.slice(0,70000),images:[]};
-  /* PDF feito de imagens: desenha cada página com boa resolução (largura ~1600 px) */
+  /* PDF feito de imagens: desenha cada página em alta resolução (largura 1600 px) e corta em faixas de até ~700 px de altura,
+     sempre num espaço em branco entre linhas. Assim a IA vê cada faixa sem reduzir a imagem e lê os números com nitidez. */
   const images=[];
   for(let p=1;p<=Math.min(pdf.numPages,12);p++){
     const pg=await pdf.getPage(p),base=pg.getViewport({scale:1}),vp=pg.getViewport({scale:Math.min(3,1600/base.width)}),cv=document.createElement('canvas');
     cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);
-    await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
-    images.push(await new Promise(r=>cv.toBlob(r,'image/jpeg',.85)));
+    const cx=cv.getContext('2d');await pg.render({canvasContext:cx,viewport:vp}).promise;
+    const W=cv.width,H=cv.height,px=cx.getImageData(0,0,W,H).data;
+    const tinta=y=>{let n=0;for(let x=0;x<W;x+=3){const i=(y*W+x)*4;if(px[i]+px[i+1]+px[i+2]<540)n++}return n};
+    const cortes=[0];
+    while(H-cortes[cortes.length-1]>800){
+      const alvo=cortes[cortes.length-1]+700;let melhor=alvo,min=1e9;
+      for(let y=alvo-130;y<=alvo+60&&y<H-1;y++){const t=tinta(y);if(t<min){min=t;melhor=y;if(t===0)break}}
+      cortes.push(melhor);
+    }
+    cortes.push(H);
+    for(let k=0;k<cortes.length-1;k++){
+      const h=cortes[k+1]-cortes[k];if(h<30)continue;
+      const c2=document.createElement('canvas');c2.width=W;c2.height=h;c2.getContext('2d').drawImage(cv,0,cortes[k],W,h,0,0,W,h);
+      images.push(await new Promise(r=>c2.toBlob(r,'image/png')));
+    }
   }
   return{text:'',images};
 }
@@ -708,16 +722,17 @@ async function readExtrato(file){
     prog('Abrindo o arquivo…');
     const ano=localToday().slice(0,4);
     const c=await fileContent(file);
-    const prompt=`Extraia TODAS as movimentações deste extrato bancário (${bank}). Responda SOMENTE JSON: {"movimentos":[{"data":"YYYY-MM-DD","descricao":"texto","valor":número positivo em reais,"tipo":"entrada"|"saida","saldo":número ou null}]}. Regras: (1) em "descricao" junte o histórico e o nome do favorecido/pagador quando houver (ex.: "CRED PIX CHAVE - Anna Thereza Novae"); (2) quando o valor vier com C ou D no final, C = entrada (crédito) e D = saída (débito); (3) IGNORE as linhas que são só de saldo (SALDO ANTERIOR, SALDO DIA, SALDO DO DIA, SALDO FINAL), não as liste; em "valor" use só a coluna de valor e em "saldo" copie a coluna Saldo da própria linha (número em reais; negativo quando terminar em D; null se o extrato não tiver saldo por linha); copie cada número exatamente como está impresso, sem arredondar; (4) mantenha linhas de tarifa (ex.: TAR PIX), IOF e devoluções como movimentações próprias; (5) leia todas as linhas das imagens, sem repetir nem pular nenhuma; (6) se o ano não aparecer, use ${ano}. Não invente linhas.`;
-    const lotes=c.images.length>2?c.images.reduce((a,im,i)=>{(a[Math.floor(i/2)]=a[Math.floor(i/2)]||[]).push(im);return a},[]):[c.images];
+    const prompt=`Extraia TODAS as movimentações deste extrato bancário (${bank}). Responda SOMENTE JSON: {"movimentos":[{"data":"YYYY-MM-DD","descricao":"texto","valor_texto":"valor exatamente como impresso, com a letra C ou D, ex.: 1.000,00 C","saldo_texto":"coluna Saldo exatamente como impressa, ex.: 5.050,60 C, ou vazio","tipo":"entrada"|"saida"}]}. Regras: (1) em "descricao" junte o histórico e o nome do favorecido/pagador quando houver (ex.: "CRED PIX CHAVE - Anna Thereza Novae"); (2) quando o valor vier com C ou D no final, C = entrada (crédito) e D = saída (débito); (3) IGNORE as linhas que são só de saldo (SALDO ANTERIOR, SALDO DIA, SALDO DO DIA, SALDO FINAL), não as liste; em "valor_texto" copie só a coluna de valor e em "saldo_texto" a coluna Saldo da própria linha; transcreva cada número CARACTERE POR CARACTERE como está impresso (pontos de milhar e vírgula dos centavos incluídos), sem arredondar, sem somar e sem corrigir: 1.000,00 nunca vira 1,00 e 10,01 nunca vira 100,10; as strips cortam a página, então a primeira e a última linha de cada imagem podem estar incompletas: só liste linhas inteiras; (4) mantenha linhas de tarifa (ex.: TAR PIX), IOF e devoluções como movimentações próprias; (5) leia todas as linhas das imagens, sem repetir nem pular nenhuma; (6) se o ano não aparecer, use ${ano}. Não invente linhas.`;
+    const lotes=c.images.length>3?c.images.reduce((a,im,i)=>{(a[Math.floor(i/3)]=a[Math.floor(i/3)]||[]).push(im);return a},[]):[c.images];
     let movs=[];
     for(let i=0;i<lotes.length;i++){
-      if(c.images.length)prog('Lendo páginas '+(i*2+1)+(lotes[i].length>1?' e '+(i*2+2):'')+' de '+c.images.length+'…');else prog('Enviando para a IA…');
+      if(c.images.length)prog('Lendo trecho '+(i+1)+' de '+lotes.length+'…');else prog('Enviando para a IA…');
       const r=await askOpenAI(prompt,{text:c.text,images:lotes[i]});
       movs=movs.concat(r.movimentos||[]);
     }
-    const rows=movs.filter(m=>m.data&&m.valor).map(m=>({date:m.data,desc:String(m.descricao||'').trim(),amount:Math.abs(+m.valor),dir:m.tipo==='entrada'?'in':'out',saldo:(m.saldo===null||m.saldo===undefined||m.saldo==='')?null:+m.saldo}));
-    const nCorr=conferirSaldos(rows);
+    const brn=(t,cd)=>{if(t==null||t==='')return null;const str=String(t);const sd=/D\s*$/i.test(str.trim());const n=+str.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.');if(!isFinite(n))return null;return(cd&&sd)?-Math.abs(n):n};
+    const rows=movs.map(m=>{const v=m.valor_texto!=null&&m.valor_texto!==''?Math.abs(brn(m.valor_texto,false)):+m.valor;let tipo=m.tipo==='entrada'?'in':'out';const vt=String(m.valor_texto||'').trim();if(/C\s*$/i.test(vt))tipo='in';else if(/D\s*$/i.test(vt))tipo='out';return{date:m.data,desc:String(m.descricao||'').trim(),amount:Math.abs(v),dir:tipo,saldo:m.saldo_texto!=null&&m.saldo_texto!==''?brn(m.saldo_texto,true):(m.saldo!=null&&m.saldo!==''?+m.saldo:null)}}).filter(r=>r.date&&r.amount);
+    const nCorr=conferirSaldos(rows);rows.forEach(r=>{if(r.aviso)r.skip=true});
     if(!rows.length){modal('<h3>Nada encontrado</h3><p>A IA leu o arquivo mas não achou movimentações. Tente um PDF só com o período desejado, ou um print mais nítido.</p><button class="b" data-a="close">Entendi</button>');return}
     previewImport(bank,file.name,rows,nCorr);
   }catch(e){erroLeitura(e)}
@@ -754,11 +769,11 @@ function previewImport(bank,fileName,rows,nCorr){
   window._imp={bank,fileName,rows};
   const nNew=rows.filter(r=>r.isNew).length;
   modal(`<h3>Prévia — ${esc(bank)}</h3><p><b>${nNew}</b> novas · <b>${rows.length-nNew}</b> já existiam (não serão acrescentadas).</p>
-  ${nCorr?`<p class="note" style="color:var(--warn)"><b>${nCorr}</b> valor(es) foram corrigidos pelo saldo que o banco imprime em cada linha (marcados abaixo).</p>`:''}${rows.some(r=>r.aviso)?`<p class="note" style="color:var(--bad)"><b>⚠ ${rows.filter(r=>r.aviso).length}</b> linha(s) não fecham com o saldo do banco. Confira esses valores com o extrato antes de acrescentar.</p>`:''}
+  ${nCorr?`<p class="note" style="color:var(--warn)"><b>${nCorr}</b> valor(es) foram corrigidos pelo saldo que o banco imprime em cada linha (marcados abaixo).</p>`:''}${rows.some(r=>r.aviso)?`<p class="note" style="color:var(--bad)"><b>⚠ ${rows.filter(r=>r.aviso).length}</b> linha(s) não fecham com o saldo do banco. Elas vêm <b>desmarcadas</b>: corrija o valor no campo (conforme o extrato) ou deixe de fora.</p>`:''}
   <p class="note">Transferências entre suas contas (e com o Douglas) ficam fora de "entrou" e "saiu". O app marca sozinho quando acha o outro lado em outro banco; desmarque "Própria" se não for.</p>
   <label style="display:flex;align-items:center;gap:12px;margin:12px 0;font-size:17px;font-weight:700"><input type="checkbox" id="impAll" data-a="impAll" checked style="width:auto;margin:0;transform:scale(1.6)"> Selecionar todas</label><p class="note">Todas as novas já vêm marcadas. Desmarque uma a uma só as que <b>não</b> quer acrescentar. Tocando em "Selecionar todas" você desmarca ou marca tudo de uma vez.</p>
   <table><tr><th>Importar</th><th>Data</th><th>Descrição</th><th class="n">Valor</th><th>Própria</th></tr>
-  ${rows.map((r,i)=>`<tr style="${r.isNew?'':'opacity:.45'}"><td>${r.isNew?`<input type="checkbox" data-a="imp" data-i="${i}" ${r.skip?'':'checked'} style="width:auto;margin:0;transform:scale(1.4)"> <span class="chip">nova</span>`:'<span class="chip">já existe</span>'}</td><td>${fd(r.date)}</td><td>${esc(r.desc)}<br><small class="note">${esc(r.cat)}${r.corrigido?' · <b style="color:var(--warn)">corrigido pelo saldo (a IA leu '+brl(r.lido)+')</b>':''}${r.aviso?' · <b style="color:var(--bad)">⚠ não fecha com o saldo do banco</b>':''}${r.pair?' · <b>par encontrado em '+esc(r.parInfo)+'</b>':''}</small></td><td class="n ${r.dir}">${r.dir==='in'?'+':'−'}${brl(r.amount)}</td><td>${r.isNew?`<input type="checkbox" data-a="own" data-i="${i}" ${r.own?'checked':''} style="width:auto;margin:0">`:''}</td></tr>`).join('')}</table><br>
+  ${rows.map((r,i)=>`<tr style="${r.isNew?'':'opacity:.45'}"><td>${r.isNew?`<input type="checkbox" data-a="imp" data-i="${i}" ${r.skip?'':'checked'} style="width:auto;margin:0;transform:scale(1.4)"> <span class="chip">nova</span>`:'<span class="chip">já existe</span>'}</td><td>${fd(r.date)}</td><td>${esc(r.desc)}<br><small class="note">${esc(r.cat)}${r.corrigido?' · <b style="color:var(--warn)">corrigido pelo saldo (a IA leu '+brl(r.lido)+')</b>':''}${r.aviso?' · <b style="color:var(--bad)">⚠ não fecha com o saldo do banco</b>':''}${r.pair?' · <b>par encontrado em '+esc(r.parInfo)+'</b>':''}</small></td><td class="n ${r.dir}">${r.aviso&&r.isNew?`<input type="number" inputmode="decimal" step="0.01" data-a="impVal" data-i="${i}" value="${r.amount}" style="width:100px;text-align:right">`:(r.dir==='in'?'+':'−')+brl(r.amount)}</td><td>${r.isNew?`<input type="checkbox" data-a="own" data-i="${i}" ${r.own?'checked':''} style="width:auto;margin:0">`:''}</td></tr>`).join('')}</table><br>
   <button class="b" id="impGo" ${nNew?'':'disabled'}>Acrescentar ${nNew} nova(s)</button> <button class="b g" data-a="close">Cancelar</button>`);
   $('#impGo').onclick=confirmImport;
 }
@@ -1003,6 +1018,7 @@ document.addEventListener('change',e=>{
   const t=e.target;if(!t.dataset||!t.dataset.a)return;
   if(t.dataset.a==='own')A.own({i:t.dataset.i,checked:t.checked});
   if(t.dataset.a==='imp')A.imp({i:t.dataset.i,checked:t.checked});
+  if(t.dataset.a==='impVal'){const r=window._imp.rows[+t.dataset.i];const v=Math.abs(+String(t.value).replace(',','.'));if(v){r.amount=v;r.aviso=false;r.skip=false;r.editado=true;const cb=document.querySelector('[data-a="imp"][data-i="'+t.dataset.i+'"]');if(cb)cb.checked=true;updImpCount();toast('Valor ajustado e linha marcada.');}}
   if(t.dataset.a==='impAll')A.impAll({checked:t.checked});
   if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='backup'){f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
 });
