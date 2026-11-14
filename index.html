@@ -277,7 +277,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14f';
+const APP_VER='2026-11-14g';
 const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
@@ -543,8 +543,12 @@ const num=v=>{const s=String(v).trim();if(s.includes(',')){return parseFloat(s.r
 /* ---------- leitura de arquivos pelo Claude ---------- */
 async function loadPdfJs(){
   if(window.pdfjsLib)return;
-  await new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
-  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const fontes=[['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'],['https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js','https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js']];
+  let ok=false;
+  for(const [js,wk] of fontes){
+    try{await new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=js;sc.onload=res;sc.onerror=()=>rej(new Error('script'));document.head.appendChild(sc)});pdfjsLib.GlobalWorkerOptions.workerSrc=wk;ok=true;break}catch(e){}
+  }
+  if(!ok)throw new Error('Não consegui carregar o leitor de PDF (internet?)');
 }
 async function fileContent(file){
   if(file.type.startsWith('image/'))return{text:'',images:[file]};
@@ -557,24 +561,28 @@ async function fileContent(file){
     text+='\n';
   }
   if(text.replace(/\s/g,'').length>80)return{text:text.slice(0,70000),images:[]};
+  /* PDF feito de imagens: desenha cada página com boa resolução (largura ~1600 px) */
   const images=[];
-  for(let p=1;p<=Math.min(pdf.numPages,8);p++){
-    const pg=await pdf.getPage(p),vp=pg.getViewport({scale:1.4}),cv=document.createElement('canvas');
-    cv.width=vp.width;cv.height=vp.height;await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
-    images.push(await new Promise(r=>cv.toBlob(r,'image/jpeg',.8)));
+  for(let p=1;p<=Math.min(pdf.numPages,12);p++){
+    const pg=await pdf.getPage(p),base=pg.getViewport({scale:1}),vp=pg.getViewport({scale:Math.min(3,1600/base.width)}),cv=document.createElement('canvas');
+    cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);
+    await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+    images.push(await new Promise(r=>cv.toBlob(r,'image/jpeg',.85)));
   }
   return{text:'',images};
 }
 const blobUrl=b=>new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(b)});
-async function askClaude(prompt,file){
-  if(!SET.openai)throw new Error('Cole a chave da OpenAI em Mais › Configurações');
-  const c=await fileContent(file);
+async function askOpenAI(prompt,c){
   const content=[{type:'text',text:prompt+(c.text?'\n\nTEXTO DO DOCUMENTO:\n'+c.text:'\n\n(O documento está nas imagens anexas.)')}];
   for(const im of c.images)content.push({type:'image_url',image_url:{url:await blobUrl(im),detail:'high'}});
   const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+SET.openai},body:JSON.stringify({model:SET.model||'gpt-4o',response_format:{type:'json_object'},messages:[{role:'user',content}]})});
   if(!r.ok){const t=await r.text();throw new Error('OpenAI '+r.status+' · '+t.slice(0,140))}
   const j=await r.json();
-  return JSON.parse(j.choices[0].message.content);
+  try{return JSON.parse(j.choices[0].message.content)}catch(e){throw new Error('A resposta da IA veio incompleta (arquivo grande demais?)')}
+}
+async function askClaude(prompt,file){
+  if(!SET.openai)throw new Error('Cole a chave da OpenAI em Mais › Configurações');
+  return askOpenAI(prompt,await fileContent(file));
 }
 function cardForm(c){
   modal(`<h3>${c.id?'Editar':'Novo'} cartão</h3><label class="f">Nome</label><input id="cN" value="${esc(c.name||'')}"><label class="f">Dia de vencimento (opcional)</label><input id="cD" inputmode="numeric" value="${esc(c.due||'')}"><button class="b" id="cS">Salvar</button> <button class="b g" data-a="close">Cancelar</button>`);
@@ -601,12 +609,22 @@ async function readConta(file){
 /* ---------- importação incremental de extrato ---------- */
 async function readExtrato(file){
   const bank=($('#impBankNew').value.trim()||$('#impBank').value);
-  toast('Lendo o extrato… pode levar um minuto');
+  const prog=m=>modal('<h3>Lendo o extrato</h3><p>'+m+'</p><p class="note">Não feche o app. Pode levar até um minuto.</p>');
   try{
+    if(!SET.openai)throw new Error('Cole a chave da OpenAI em Mais › Configurações');
+    prog('Abrindo o arquivo…');
     const ano=localToday().slice(0,4);
-    const r=await askClaude(`Extraia TODAS as movimentações deste extrato bancário (${bank}). Responda SOMENTE JSON: {"movimentos":[{"data":"YYYY-MM-DD","descricao":"texto","valor":número positivo em reais,"tipo":"entrada"|"saida"}]}. Regras: (1) em "descricao" junte o histórico e o nome do favorecido/pagador quando houver (ex.: "CRED PIX CHAVE - Anna Thereza Novae"); (2) quando o valor vier com C ou D no final, C = entrada (crédito) e D = saída (débito); (3) IGNORE linhas de saldo (SALDO ANTERIOR, SALDO DIA, SALDO DO DIA, SALDO FINAL) e o saldo de cada linha, use só a coluna de valor; (4) mantenha linhas de tarifa (ex.: TAR PIX), IOF e devoluções como movimentações próprias; (5) o extrato pode ter várias páginas: leia todas, sem repetir linha; (6) se o ano não aparecer, use ${ano}. Não invente linhas.`,file);
-    const rows=(r.movimentos||[]).filter(m=>m.data&&m.valor).map(m=>({date:m.data,desc:String(m.descricao||'').trim(),amount:Math.abs(+m.valor),dir:m.tipo==='entrada'?'in':'out'}));
-    if(!rows.length)return toast('Nenhuma movimentação encontrada');
+    const c=await fileContent(file);
+    const prompt=`Extraia TODAS as movimentações deste extrato bancário (${bank}). Responda SOMENTE JSON: {"movimentos":[{"data":"YYYY-MM-DD","descricao":"texto","valor":número positivo em reais,"tipo":"entrada"|"saida"}]}. Regras: (1) em "descricao" junte o histórico e o nome do favorecido/pagador quando houver (ex.: "CRED PIX CHAVE - Anna Thereza Novae"); (2) quando o valor vier com C ou D no final, C = entrada (crédito) e D = saída (débito); (3) IGNORE linhas de saldo (SALDO ANTERIOR, SALDO DIA, SALDO DO DIA, SALDO FINAL) e o saldo de cada linha, use só a coluna de valor; (4) mantenha linhas de tarifa (ex.: TAR PIX), IOF e devoluções como movimentações próprias; (5) leia todas as linhas das imagens, sem repetir nem pular nenhuma; (6) se o ano não aparecer, use ${ano}. Não invente linhas.`;
+    const lotes=c.images.length>2?c.images.reduce((a,im,i)=>{(a[Math.floor(i/2)]=a[Math.floor(i/2)]||[]).push(im);return a},[]):[c.images];
+    let movs=[];
+    for(let i=0;i<lotes.length;i++){
+      if(c.images.length)prog('Lendo páginas '+(i*2+1)+(lotes[i].length>1?' e '+(i*2+2):'')+' de '+c.images.length+'…');else prog('Enviando para a IA…');
+      const r=await askOpenAI(prompt,{text:c.text,images:lotes[i]});
+      movs=movs.concat(r.movimentos||[]);
+    }
+    const rows=movs.filter(m=>m.data&&m.valor).map(m=>({date:m.data,desc:String(m.descricao||'').trim(),amount:Math.abs(+m.valor),dir:m.tipo==='entrada'?'in':'out'}));
+    if(!rows.length){modal('<h3>Nada encontrado</h3><p>A IA leu o arquivo mas não achou movimentações. Tente um PDF só com o período desejado, ou um print mais nítido.</p><button class="b" data-a="close">Entendi</button>');return}
     previewImport(bank,file.name,rows);
   }catch(e){erroLeitura(e)}
 }
