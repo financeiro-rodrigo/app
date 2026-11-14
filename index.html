@@ -174,30 +174,6 @@ async function syncCofre(tk){
   if(rem&&tr>tl){LS.set('mf_vault_'+ME,rem);if(VAULT.status==='loading'||VAULT.status==='none'){VAULT.raw=rem;VAULT.status='locked'}}
   else if(loc&&tl>tr){const t=JSON.stringify(loc);f?await atualizarArq(tk,f.id,t):await criarArq(tk,nome,t)}
 }
-/* ---------- Central de Lembretes: envia contas a vencer e recados do Rodrigo para a pasta "Lembretes" do Drive ---------- */
-async function publicarLembretes(tk){
-  const H={Authorization:'Bearer '+tk};
-  const hoje=localToday(),dia=n=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4+n*864e5).toISOString().slice(0,10);
-  const ini=dia(-30),fim=dia(45),itens=[];
-  state.tx.filter(t=>t.kind==='out'&&t.status==='pendente'&&t.date&&t.date>=ini&&t.date<=fim).forEach(t=>itens.push({id:'conta-'+t.id,titulo:'Pagar: '+t.desc,detalhe:vtxt(t).replace(/<[^>]*>/g,'')+(t.dono&&t.dono!=='Casa'?' · '+t.dono:''),quando:t.date,categoria:'Contas'}));
-  state.notes.filter(n=>!n.done&&(n.to==='Rodrigo'||!n.to)).forEach(n=>itens.push({id:'recado-'+n.id,titulo:'Recado: '+n.text,detalhe:n.from?'De '+n.from:'',quando:n.due||null,categoria:'Recados'}));
-  const corpo=JSON.stringify({app:'financeiro',atualizado:new Date().toISOString(),itens});
-  const sig=JSON.stringify(itens);if(LS.get('mf_lemb_sig','')===sig)return;
-  let pasta=LS.get('mf_lemb_pasta',null);
-  if(!pasta){
-    const q=encodeURIComponent("name='Lembretes' and mimeType='application/vnd.google-apps.folder' and trashed=false");
-    const j=await(await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id)',{headers:H})).json();
-    pasta=j.files&&j.files[0]&&j.files[0].id;
-    if(!pasta){const c=await fetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{...H,'Content-Type':'application/json'},body:JSON.stringify({name:'Lembretes',mimeType:'application/vnd.google-apps.folder'})});pasta=(await c.json()).id}
-    if(!pasta)return;LS.set('mf_lemb_pasta',pasta);
-  }
-  const q2=encodeURIComponent("name='lembretes-financeiro.json' and '"+pasta+"' in parents and trashed=false");
-  const f=((await(await fetch('https://www.googleapis.com/drive/v3/files?q='+q2+'&fields=files(id)',{headers:H})).json()).files||[])[0];
-  let r;
-  if(f)r=await fetch('https://www.googleapis.com/upload/drive/v3/files/'+f.id+'?uploadType=media',{method:'PATCH',headers:{...H,'Content-Type':'application/json'},body:corpo});
-  else{const b='lemb'+Date.now();r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{...H,'Content-Type':'multipart/related; boundary='+b},body:`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({name:'lembretes-financeiro.json',parents:[pasta]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${corpo}\r\n--${b}--`})}
-  if(r.ok)LS.set('mf_lemb_sig',sig);else if(r.status===404)LS.set('mf_lemb_pasta',null);
-}
 async function syncNow(interativo){
   if(SYNC.busy)return;
   if(!syncPronto())return setStatus();
@@ -211,7 +187,6 @@ async function syncNow(interativo){
     if(mudou){persist();loadState();render()}
     if(!f||subir){const t=JSON.stringify({v:1,at:Date.now(),cols:STORE});f?await atualizarArq(tk,f.id,t):await criarArq(tk,'meu-financeiro.json',t)}
     await syncCofre(tk);
-    if(ME==='Rodrigo'){try{await publicarLembretes(tk)}catch(e){}}
     SYNC.last=Date.now();SYNC.err='';
   }catch(e){SYNC.err=(e&&e.message)||'falha'}
   SYNC.busy=false;setStatus();
