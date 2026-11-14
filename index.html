@@ -232,7 +232,6 @@ async function boot(){
   aplicarTema();loadState();render();setStatus();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(r=>{window._swReg=r}).catch(()=>{});
   /* Atualização automática: confere se há versão nova ao abrir, ao voltar para o app e a cada 10 min */
-  const APP_VER='2026-11-14d';
   let _avisou=false;
   async function checarVersao(){
     if(_avisou||!navigator.onLine)return;
@@ -277,6 +276,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
+const APP_VER='2026-11-14e';
 const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
@@ -443,7 +443,7 @@ function vCfg(){
   <p class="note">Usada para ler contas e extratos. A chave fica só neste aparelho e não é sincronizada.</p>
   <label class="f">Chave da OpenAI</label><input id="cfgOpenai" type="password" value="${esc(SET.openai||'')}" autocomplete="off" placeholder="sk-…">
   <label class="f">Modelo</label><input id="cfgModel" value="${esc(SET.model||'gpt-4o')}" autocomplete="off">
-  <button class="b" data-a="cfgIA">Salvar</button></div>
+  <button class="b" data-a="cfgIA">Salvar</button> <button class="b g" data-a="cfgTestar">Testar chave</button><p class="note">Versão do app: ${typeof APP_VER!=='undefined'?APP_VER:'?'}</p></div>
   <div class="card"><b>Backup dos dados</b>
   <p class="note">Baixe uma cópia ou traga os dados de outro lugar (por exemplo, do app antigo). Importar nunca apaga o que já existe.</p>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="bkExport">Baixar backup</button><label class="b g">Importar arquivo<input type="file" accept="application/json,.json" data-a="backup" hidden></label><button class="b g" data-a="bkColar">Colar dados</button></div></div>`;
@@ -741,6 +741,16 @@ const A={
   tema:d=>{SET.tema=d.k;saveSet();aplicarTema();render()},
   syncAgora:()=>{if(!syncPronto()){state.tab='mais';state.sub='cfg';render();return toast('Preencha a chave do Google e a pasta')}syncNow(true)},
   cfgSalvar:()=>{SET.clientId=($('#cfgCid').value||'').trim();SET.pasta=($('#cfgPasta').value||'').trim();saveSet();TOKEN=null;if(!syncPronto())return toast('Falta a chave ou o link da pasta');syncNow(true);render()},
+  cfgTestar:async()=>{
+    const k=($('#cfgOpenai').value||SET.openai||'').trim();
+    if(!k)return modal('<h3>Teste da chave</h3><p>Nenhuma chave colada neste aparelho.</p><button class="b" data-a="close">Ok</button>');
+    toast('Testando…');
+    try{
+      const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+k},body:JSON.stringify({model:($('#cfgModel').value||SET.model||'gpt-4o').trim(),max_tokens:5,messages:[{role:'user',content:'Responda apenas: ok'}]})});
+      const t=await r.text();
+      modal('<h3>Teste da chave</h3><p>'+(r.ok?'✅ <b>Funcionando.</b> A chave e o crédito estão certos.':'❌ <b>Não funcionou</b> (código '+r.status+').')+'</p><p class="note">'+esc(r.ok?'':t.slice(0,300))+'</p><button class="b" data-a="close">Ok</button>');
+    }catch(e){modal('<h3>Teste da chave</h3><p>❌ Não consegui falar com a OpenAI: '+esc(String(e.message||e))+'</p><button class="b" data-a="close">Ok</button>')}
+  },
   cfgIA:()=>{SET.openai=($('#cfgOpenai').value||'').trim();SET.model=($('#cfgModel').value||'').trim()||'gpt-4o';saveSet();toast('Salvo neste aparelho')},
   bkExport:()=>{const txt=JSON.stringify({v:1,cols:STORE,vault:ME?LS.get('mf_vault_'+ME,null):null});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download='meu-financeiro-backup.json';document.body.appendChild(a);a.click();a.remove();toast('Backup baixado')},
   bkColar:()=>{modal('<h3>Colar dados</h3><p class="note">Cole aqui o texto do backup.</p><textarea id="bkTxt" rows="6" style="width:100%"></textarea><button class="b" id="bkOk">Importar</button> <button class="b g" data-a="close">Cancelar</button>');$('#bkOk').onclick=()=>{try{importarBackup($('#bkTxt').value);closeModal()}catch(e){toast('Texto inválido')}}},
