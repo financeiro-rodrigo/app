@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14x';
+const APP_VER='2026-11-14y';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -551,7 +551,7 @@ function vCartoes(){
   const total=open.reduce((a,t)=>a+t.amount,0);
   const cards=[...state.cards].sort((x,y)=>(x.name||'').localeCompare(y.name||''));
   return`<div class="card"><div class="k">Faturas em aberto (todos os cartões)</div><div class="v pend">${brl(total)}</div></div>
-  <button class="b g" data-a="newCard">+ Novo cartão</button>`+cards.map(c=>{
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="newCard">+ Novo cartão</button><label class="b">Enviar PDF dos cartões<input type="file" accept="application/pdf,.pdf,image/*" data-a="cartoesPdf" hidden></label></div>`+cards.map(c=>{
     const F=state.tx.filter(t=>t.cardId===c.id).sort((a,b)=>b.date.localeCompare(a.date));
     const ab=F.filter(t=>t.status==='pendente').reduce((a,t)=>a+t.amount,0);
     const ainf=F.filter(t=>t.status==='pendente'&&!t.amount).length;
@@ -714,6 +714,37 @@ async function readConta(file){
     const r=await askClaude(`Leia esta conta/boleto/fatura. Responda SOMENTE JSON: {"descricao":"nome do beneficiário ou da conta","valor_total":número em reais,"vencimento":"YYYY-MM-DD"|null}. Use o valor TOTAL a pagar (não o valor de itens). Se não achar com certeza, use null.`,file);
     txForm({kind:'out',status:'pendente',origin:'conta',category:'Outros',desc:r.descricao||'',amount:r.valor_total||'',date:r.vencimento||localToday()});
   }catch(e){erroLeitura(e)}
+}
+
+/* ---------- leitura de PDF com os cartões ---------- */
+const nrm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+function achaCartao(nome){const n=nrm(nome);if(!n)return null;return state.cards.find(c=>{const k=nrm(c.name);return k&&(k===n||k.includes(n)||n.includes(k))})||null}
+async function readCartoes(file){
+  toast('Lendo os cartões…');
+  try{
+    const r=await askClaude(`Este documento mostra faturas de cartões (de loja ou de banco). Para CADA cartão/fatura, responda SOMENTE JSON: {"cartoes":[{"nome":"nome do cartão ou loja","valor_total":número em reais (valor TOTAL a pagar da fatura),"vencimento":"YYYY-MM-DD"|null,"pago":true se a fatura consta como paga|false}]}. Copie cada valor exatamente como está escrito (vírgula decimal, ponto de milhar). Não invente cartão nem valor: se um valor estiver ilegível, use null.`,file);
+    const L=(r.cartoes||[]).filter(x=>x&&x.nome);
+    if(!L.length)return modal('<h3>Não encontrei cartões</h3><p>Não achei faturas nesse arquivo. Tente outro PDF ou um print.</p><button class="b" data-a="close">Entendi</button>');
+    window._cartoesLidos=L.map(x=>({nome:String(x.nome),valor:Number(x.valor_total)||0,venc:x.vencimento||'',pago:!!x.pago,card:achaCartao(x.nome)}));
+    previewCartoes();
+  }catch(e){erroLeitura(e)}
+}
+function previewCartoes(){
+  const L=window._cartoesLidos,t0=localToday();
+  modal(`<h3>Cartões lidos</h3><p class="note">Confira os valores com o PDF. Corrija o que estiver errado e desmarque o que não quiser lançar.</p>
+  ${L.map((x,i)=>`<div class="card" style="padding:8px"><label><input type="checkbox" data-a="cpOn" data-i="${i}" checked> <b>${esc(x.nome)}</b></label> <small>${x.card?'(cartão já cadastrado)':'(cartão novo — será criado)'}</small><br>
+  <label class="f">Valor (R$)</label><input data-a="cpVal" data-i="${i}" inputmode="decimal" value="${x.valor?String(x.valor).replace('.',','):''}">
+  <label class="f">Vencimento</label><input type="date" data-a="cpVenc" data-i="${i}" value="${x.venc||t0}">
+  <label><input type="checkbox" data-a="cpPago" data-i="${i}" ${x.pago?'checked':''}> Já está paga</label></div>`).join('')}
+  <button class="b" id="cpOk">Lançar nos cartões</button> <button class="b g" data-a="close">Cancelar</button>`);
+  const M=document.querySelector('#modal');
+  M.querySelectorAll('[data-a^=cp]').forEach(el=>el.onchange=()=>{const i=+el.dataset.i,x=L[i],k=el.dataset.a;if(k==='cpVal')x.valor=num(el.value);if(k==='cpVenc')x.venc=el.value;if(k==='cpPago')x.pago=el.checked;if(k==='cpOn')x.off=!el.checked});
+  $('#cpOk').onclick=async()=>{let n=0;
+    for(const x of L){if(x.off||!(x.valor>0))continue;
+      let c=x.card||achaCartao(x.nome);if(!c){c={id:uid(),name:x.nome};await save('cards',c)}
+      const ex=state.tx.find(t=>t.cardId===c.id&&t.origin==='cartao'&&t.status==='pendente'&&t.date===x.venc);
+      await save('tx',{...(ex||{}),kind:'out',desc:'Fatura '+c.name,amount:x.valor,date:x.venc||t0,status:x.pago?'pago':'pendente',category:'Cartão',cardId:c.id,origin:'cartao',createdAt:(ex&&ex.createdAt)||new Date().toISOString()});n++}
+    closeModal();render();toast(n+' fatura(s) lançada(s)')};
 }
 
 /* ---------- importação incremental de extrato ---------- */
@@ -1025,7 +1056,7 @@ document.addEventListener('change',e=>{
   if(t.dataset.a==='imp')A.imp({i:t.dataset.i,checked:t.checked});
   if(t.dataset.a==='impVal'){const r=window._imp.rows[+t.dataset.i];const v=Math.abs(+String(t.value).replace(',','.'));if(v){r.amount=v;r.aviso=false;r.skip=false;r.editado=true;const cb=document.querySelector('[data-a="imp"][data-i="'+t.dataset.i+'"]');if(cb)cb.checked=true;updImpCount();toast('Valor ajustado e linha marcada.');}}
   if(t.dataset.a==='impAll')A.impAll({checked:t.checked});
-  if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='backup'){f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
+  if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='cartoesPdf')readCartoes(f);if(k==='backup'){f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
 });
 boot();
 </script>
