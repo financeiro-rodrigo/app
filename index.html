@@ -307,7 +307,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14q';
+const APP_VER='2026-11-14r';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -327,8 +327,10 @@ chart:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/><circle cx="18" cy="8" r="3"
 bars:'<path d="M5 20V11M11 20V4M17 20v-7"/>'
 };
 const svg=(n,x='')=>`<svg viewBox="0 0 24 24" ${x}>${IC[n]||''}</svg>`;
-const BANCOS=[['Itaú','com.itau'],['Cartões Itaú','com.itaucard.activity'],['Caixa','br.com.gabba.Caixa']];
-const bancoUrl=pk=>'intent://#Intent;package='+pk+';S.browser_fallback_url='+encodeURIComponent('https://play.google.com/store/apps/details?id='+pk)+';end';
+const BANCOS=[['Itaú','com.itau'],['Caixa','br.com.gabba.Caixa']];
+const LOJAS=[['Renner','br.com.lojasrenner'],['Leroy Merlin','br.com.leroymerlin'],['Riachuelo',''],['Casa Vídeo','']];
+const appUrl=(pk,nome)=>pk?'intent://#Intent;package='+pk+';S.browser_fallback_url='+encodeURIComponent('https://play.google.com/store/apps/details?id='+pk)+';end':'https://play.google.com/store/search?c=apps&q='+encodeURIComponent(nome);
+const gmailUrl=()=>{const l=(SET.contLabel||'').trim();if(!l)return'';const u=(SET.gmail||'').trim();return'https://mail.google.com/mail/'+(u?'?authuser='+encodeURIComponent(u):'')+'#label/'+encodeURIComponent(l).replace(/%20/g,'+')};
 const CATIC={'Casa e clínica':'home','Cartão':'card','Impostos':'doc','Outros':'grid'};
 const TABS=[['resumo','Resumo','home'],['contas','Contas','doc'],['cartoes','Cartões','card'],['extrato','Extratos','down'],['recados','Recados','chat'],['mais','Mais','grid']];
 const NAMES=['Rodrigo','Douglas'];
@@ -384,7 +386,8 @@ function vResumo(){
   ${painelFin(s)}
   <div class="card"><div class="cathd">${svg('bars')}Saídas por categoria</div><div style="margin-top:8px">${bars}</div></div>
   <div class="g4">${[['Importar extrato','cloud','extrato'],['Contas fixas','cal','contas','fixas'],['Metas','target','mais','metas'],['Diagnóstico financeiro','chart','mais','diag']].map(([n,i,t,sb])=>`<div class="tile act" data-a="ir" data-t="${t}" data-s="${sb||''}">${svg(i)}<div>${n}</div></div>`).join('')}</div>
-  <div class="card"><div class="cathd">${svg('card')}Abrir app do banco</div><div class="g3" style="margin-bottom:0">${BANCOS.map(([n,pk])=>`<a class="tile act" href="${bancoUrl(pk)}" style="text-decoration:none;color:var(--tx)">${svg('home')}<div>${n}</div></a>`).join('')}</div><p class="note" style="margin:8px 0 0">Abre o aplicativo do banco no celular ou tablet. Se ele não estiver instalado, abre a página dele na Play Store.</p></div>
+  <div class="card"><div class="cathd">${svg('card')}Meus aplicativos</div><div class="note" style="margin:6px 0">Bancos</div><div class="g3" style="margin:0 0 6px">${BANCOS.map(([n,pk])=>`<a class="tile act" href="${appUrl(pk,n)}" style="text-decoration:none;color:var(--tx)">${svg('home')}<div>${n}</div></a>`).join('')}</div><div class="note" style="margin:6px 0">Lojas</div><div class="g4" style="margin:0 0 6px">${LOJAS.map(([n,pk])=>`<a class="tile act" href="${appUrl(pk,n)}" style="text-decoration:none;color:var(--tx)">${svg('card')}<div>${n}</div></a>`).join('')}</div><p class="note" style="margin:8px 0 0">Abre o aplicativo que já está no seu aparelho. Se não abrir, vai para a Play Store.</p></div>
+  <div class="card"><div class="cathd">${svg('file')}E-mail do contador</div><div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button class="pill" style="flex:1" data-a="contador">Abrir e-mails do contador</button><button class="s" data-a="contadorCfg">Alterar</button></div><p class="note" style="margin:8px 0 0">Abre o Gmail direto no marcador que você separou para o contador.</p></div>
   <p class="note">Transferências entre contas próprias ficam fora de entradas e saídas. Valores de cheque especial são estimativas (aba Dívidas).</p>`;
 }
 function painelFin(s){
@@ -856,6 +859,9 @@ function vItemForm(it){
 }
 /* ---------- ações ---------- */
 const A={
+  contador:()=>{const u=gmailUrl();if(!u){A.contadorCfg();return}window.open(u,'_blank')},
+  contadorCfg:()=>{modal(`<h3>E-mail do contador</h3><p class="note">Digite o nome do marcador (etiqueta) do Gmail onde ficam os e-mails do contador, exatamente como aparece no Gmail.</p><label class="f">Nome do marcador</label><input id="cLab" value="${esc(SET.contLabel||'')}" placeholder="Ex.: Contador"><label class="f">Seu Gmail (opcional, ajuda a abrir a conta certa)</label><input id="cGm" type="email" value="${esc(SET.gmail||'')}" placeholder="seuemail@gmail.com"><button class="b" data-a="contadorSalvar">Salvar e abrir</button> <button class="b g" data-a="close">Cancelar</button>`)},
+  contadorSalvar:()=>{SET.contLabel=$('#cLab').value.trim();SET.gmail=$('#cGm').value.trim();saveSet();closeModal();if(gmailUrl())window.open(gmailUrl(),'_blank')},
   tab:d=>{state.tab=d.k;render()},ir:d=>{state.tab=d.t;if(d.t==='contas'&&d.s)state.csub=d.s;if(d.t==='mais'&&d.s)state.sub=d.s;window.scrollTo(0,0);render()},sub:d=>{state.sub=d.k;render()},close:()=>closeModal(),
   mm:d=>{state.month=shiftMonth(state.month,+d.n);render()},
   new:d=>txForm({kind:d.kind,status:d.pend?'pendente':'pago',category:d.kind==='in'?'Atendimentos':'Outros'}),
