@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14zzzzzz';
+const APP_VER='2026-11-14zzzzzzz';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -714,7 +714,7 @@ function erroLeitura(e){
   modal('<h3>Não consegui ler o arquivo</h3><p>'+dica+'</p><p class="note">Detalhe técnico: '+esc(m)+'</p><button class="b" data-a="close">Entendi</button>');
 }
 async function readConta(file){
-  toast('Lendo a conta…');
+  modal('<h3>Lendo a conta…</h3><p>Aguarde alguns segundos.</p>');
   try{
     const r=await askClaude(`Leia esta conta/boleto/fatura. Responda SOMENTE JSON: {"descricao":"nome do beneficiário ou da conta","valor_total":número em reais,"vencimento":"YYYY-MM-DD"|null}. Use o valor TOTAL a pagar (não o valor de itens). Se não achar com certeza, use null.`,file);
     txForm({kind:'out',status:'pendente',origin:'conta',category:'Outros',desc:r.descricao||'',amount:r.valor_total||'',date:r.vencimento||localToday()});
@@ -725,7 +725,7 @@ async function readConta(file){
 const nrm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 function achaCartao(nome){const n=nrm(nome);if(!n)return null;return state.cards.find(c=>{const k=nrm(c.name);return k&&(k===n||k.includes(n)||n.includes(k))})||null}
 async function readCartoes(file){
-  toast('Lendo os cartões…');
+  modal('<h3>Lendo os cartões…</h3><p>Aguarde, isso pode levar até 1 minuto. Não feche o app.</p><div class="bar"><i style="width:100%;background:var(--gold);opacity:.6"></i></div>');
   try{
     const r=await askClaude(`Este documento mostra faturas de cartões (de loja ou de banco). Para CADA cartão/fatura, responda SOMENTE JSON: {"cartoes":[{"nome":"nome do cartão ou loja","valor_total":número em reais (valor TOTAL a pagar da fatura),"vencimento":"YYYY-MM-DD"|null,"pago":true se a fatura consta como paga|false}]}. Copie cada valor exatamente como está escrito (vírgula decimal, ponto de milhar). Não invente cartão nem valor: se um valor estiver ilegível, use null.`,file);
     const L=(r.cartoes||[]).filter(x=>x&&x.nome);
