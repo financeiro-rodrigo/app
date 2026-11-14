@@ -307,7 +307,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14s';
+const APP_VER='2026-11-14t';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -328,7 +328,7 @@ bars:'<path d="M5 20V11M11 20V4M17 20v-7"/>'
 };
 const svg=(n,x='')=>`<svg viewBox="0 0 24 24" ${x}>${IC[n]||''}</svg>`;
 const BANCOS=[['Itaú','com.itau'],['Caixa','br.com.gabba.Caixa']];
-const LOJAS=[['Mais!','br.com.credsystem.appmais'],['Leroy Merlin Pay','br.com.pefisa.appleroymerlinpay'],['Cartão Casa e Vídeo','br.com.portaldocartao.cartaocasaevideo'],['Renner','br.com.lojasrenner']];
+const LOJAS=[['Mais!','br.com.credsystem.appmais'],['Leroy Merlin Pay','br.com.pefisa.appleroymerlinpay'],['Cartão Casa e Vídeo','br.com.portaldocartao.cartaocasaevideo'],['Renner','br.com.lojasrenner'],['Riachuelo','']];
 const appUrl=(pk,nome)=>pk?'intent://#Intent;package='+pk+';S.browser_fallback_url='+encodeURIComponent('https://play.google.com/store/apps/details?id='+pk)+';end':'https://play.google.com/store/search?c=apps&q='+encodeURIComponent(nome);
 const gmailUrl=()=>{const l=(SET.contLabel||'').trim();if(!l)return'';const u=(SET.gmail||'').trim();return'https://mail.google.com/mail/'+(u?'?authuser='+encodeURIComponent(u):'')+'#label/'+encodeURIComponent(l).replace(/%20/g,'+')};
 const CATIC={'Casa e clínica':'home','Cartão':'card','Impostos':'doc','Outros':'grid'};
