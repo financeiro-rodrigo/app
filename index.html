@@ -232,7 +232,7 @@ async function boot(){
   aplicarTema();loadState();render();setStatus();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(r=>{window._swReg=r}).catch(()=>{});
   /* Atualização automática: confere se há versão nova ao abrir, ao voltar para o app e a cada 10 min */
-  const APP_VER='2026-11-14c';
+  const APP_VER='2026-11-14d';
   let _avisou=false;
   async function checarVersao(){
     if(_avisou||!navigator.onLine)return;
@@ -370,7 +370,7 @@ function vContasMes(){
   const to=ME?outroDe(ME):'';
   return monthNav()+`<div class="grid"><div class="card"><div class="k">Total de contas do mês</div><div class="v">${brl(tot)}</div><div class="note">tudo que vence em ${monthLabel(state.month)}</div></div><div class="card"><div class="k">Já pago</div><div class="v in">${brl(pg)}</div><div class="note">contas deste mês quitadas</div></div></div>
   <div class="card"><div class="k">Falta pagar</div><div class="v pend">${brl(tot-pg)}</div><div class="note">total de contas − já pago</div></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">${faltam?`<button class="b" data-a="gerar">Criar ${faltam} conta(s) fixa(s) do mês</button>`:''}<label class="b g">Ler conta (PDF ou foto)<input type="file" accept="application/pdf,image/*" data-a="conta" hidden></label><button class="b g" data-a="new" data-kind="out" data-pend="1">+ Manual</button><a class="s wa" href="${waUrl(textoResumo(),to)}" target="_blank" rel="noopener" style="padding:10px 12px">Enviar resumo no WhatsApp</a></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">${faltam?`<button class="b" data-a="gerar">Criar ${faltam} conta(s) fixa(s) do mês</button>`:''}<label class="b g">Ler conta (PDF)<input type="file" accept="application/pdf,.pdf" data-a="conta" hidden></label><label class="b g">Ler conta (foto)<input type="file" accept="image/*" data-a="conta" hidden></label><button class="b g" data-a="new" data-kind="out" data-pend="1">+ Manual</button><a class="s wa" href="${waUrl(textoResumo(),to)}" target="_blank" rel="noopener" style="padding:10px 12px">Enviar resumo no WhatsApp</a></div>
   ${sel}${corpo}${pagasH}`;
 }
 function vFixas(){
@@ -395,7 +395,7 @@ function vExtrato(){
   return`<div class="card"><b>Importar extrato</b>
   <p class="note">PDF ou print do Itaú ou da Caixa. Antes de salvar, você vê quais movimentações são novas e quais já existem. Só as novas são acrescentadas.</p>
   <label class="f">Banco</label><select id="impBank">${banks().map(b=>`<option>${esc(b)}</option>`).join('')}</select><input id="impBankNew" placeholder="Outro banco? Digite o nome aqui (ex.: Nubank)">
-  <label class="b">Escolher extrato<input type="file" accept="application/pdf,image/*" data-a="extrato" hidden></label></div>
+  <label class="b">Escolher PDF do extrato<input type="file" accept="application/pdf,.pdf" data-a="extrato" hidden></label> <label class="b g">Foto ou print<input type="file" accept="image/*" data-a="extrato" hidden></label></div>
   <div class="card"><b>Importações feitas</b>${imps.map(i=>`<div class="row"><div class="rl"><b>${esc(i.bank)} · ${esc(i.fileName||'extrato')}</b><small>${new Date(i.createdAt).toLocaleString('pt-BR')}</small></div><div class="rr">${i.added} novas<small class="note" style="display:block">${i.skipped} já existiam</small></div></div>`).join('')||'<p class="note">Nenhuma importação ainda.</p>'}</div>`;
 }
 function noteForMe(n){return !n.done&&ME&&(n.to===ME||n.to==='Os dois')&&n.from!==ME}
