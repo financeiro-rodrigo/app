@@ -226,7 +226,7 @@ function importarBackup(txt){
   const o=JSON.parse(txt);const cols=o.cols||o;let n=0;
   COLS.forEach(c=>{const R=cols[c];if(!R)return;const arr=Array.isArray(R)?R:Object.values(R);arr.forEach(x=>{if(!x||!x.id)return;const cur=STORE[c][x.id];if(!cur||(x._u||1)>(cur._u||0)){STORE[c][x.id]={...x,_u:x._u||1};n++}})});
   if(o.vault&&o.vault.ct&&ME&&!LS.get('mf_vault_'+ME,null)){LS.set('mf_vault_'+ME,o.vault);VAULT.status='loading';VAULT.started=false}
-  persist();loadState();agendarSync();render();toast(n+' registro(s) importado(s)');
+  persist();loadState();agendarSync();render();toast(n+' registro(s) importado(s)');reconciliar().then(p=>{if(p.length){render();toast(p.length+' pagamento(s) duplicado(s) unido(s)')}});
 }
 function toast(m){const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:9px 14px;border-radius:9px;z-index:50;font-size:14px';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
 async function boot(){
@@ -281,7 +281,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14j';
+const APP_VER='2026-11-14k';
 const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
@@ -401,7 +401,8 @@ function vExtrato(){
   <p class="note">PDF ou print do Itaú ou da Caixa. Antes de salvar, você vê quais movimentações são novas e quais já existem. Só as novas são acrescentadas.</p>
   <label class="f">Banco</label><select id="impBank">${banks().map(b=>`<option>${esc(b)}</option>`).join('')}</select><input id="impBankNew" placeholder="Outro banco? Digite o nome aqui (ex.: Nubank)">
   <label class="b">Escolher PDF do extrato<input type="file" accept="application/pdf,.pdf" data-a="extrato" hidden></label> <label class="b g">Foto ou print<input type="file" accept="image/*" data-a="extrato" hidden></label></div>
-  <div class="card"><b>Importações feitas</b>${imps.map(i=>`<div class="row"><div class="rl"><b>${esc(i.bank)} · ${esc(i.fileName||'extrato')}</b><small>${new Date(i.createdAt).toLocaleString('pt-BR')}</small></div><div class="rr">${i.added} novas<small class="note" style="display:block">${i.skipped} já existiam</small></div></div>`).join('')||'<p class="note">Nenhuma importação ainda.</p>'}</div>`;
+  <div class="card"><b>Conferência</b><p class="note">Se o mesmo pagamento aparece na conta e no extrato, o total fica dobrado. Este botão une os dois.</p><button class="b" data-a="conferir">🔍 Conferir duplicidades</button></div>
+  <div class="card"><b>Importações feitas</b>${imps.map(i=>`<div class="row"><div class="rl"><b>${esc(i.bank)} · ${esc(i.fileName||'extrato')}</b><small>${new Date(i.createdAt).toLocaleString('pt-BR')}</small></div><div class="rr">${i.added} novas<small class="note" style="display:block">${i.skipped} já existiam</small><button class="s d" data-a="desfazImp" data-id="${i.id}">Desfazer</button></div></div>`).join('')||'<p class="note">Nenhuma importação ainda.</p>'}</div>`;
 }
 function noteForMe(n){return !n.done&&ME&&(n.to===ME||n.to==='Os dois')&&n.from!==ME}
 function vRecados(){
@@ -652,6 +653,26 @@ function previewImport(bank,fileName,rows){
   $('#impGo').onclick=confirmImport;
 }
 function updImpCount(){const nn=window._imp.rows.filter(r=>r.isNew);const n=nn.filter(r=>!r.skip).length;const ca=$('#impAll');if(ca)ca.checked=n===nn.length&&n>0;const b=$('#impGo');if(b){b.textContent='Acrescentar '+n+' nova(s)';b.disabled=!n}}
+/* Une o mesmo pagamento que aparece em dois lugares: na conta (planilha) e no extrato. Só a conta conta nos totais. */
+async function reconciliar(){
+  const usadas=new Set(),pares=[];
+  const contas=()=>state.tx.filter(t=>t.kind==='out'&&t.origin==='conta'&&!t._d&&!t.matched&&!usadas.has(t.id)&&cents(t.amount)>0);
+  const exts=state.tx.filter(t=>t.origin==='extrato'&&t.kind==='out'&&!t.absorbedBy).sort((a,b)=>a.date.localeCompare(b.date));
+  for(const e of exts){
+    let best=null,bd=99;
+    contas().forEach(b=>{if(cents(b.amount)!==cents(e.amount))return;const d=daysBetween(b.paidDate||b.date,e.date);if(d<=7&&d<bd){best=b;bd=d}});
+    if(best){usadas.add(best.id);pares.push([best,e]);await save('tx',{id:e.id,absorbedBy:best.id});await save('tx',{id:best.id,status:'pago',matched:true,bank:e.bank,paidDate:best.paidDate||e.date,autoQuitada:best.status==='pendente'})}
+  }
+  return pares;
+}
+async function desfazerImport(id){
+  const itens=state.tx.filter(t=>t.importId===id);
+  for(const t of itens){
+    if(t.absorbedBy){const b=state.tx.find(x=>x.id===t.absorbedBy);if(b&&b.matched){const volta=b.autoQuitada||!b.paidDate;await save('tx',{id:b.id,matched:false,autoQuitada:false,status:volta?'pendente':b.status,paidDate:volta?'':b.paidDate})}}
+    await remove('tx',t.id);
+  }
+  await remove('imports',id);
+}
 async function confirmImport(){
   const{bank,fileName,rows}=window._imp;const novas=rows.filter(r=>r.isNew&&!r.skip);
   const impId='imp_'+uid(),now=new Date().toISOString();
@@ -831,6 +852,11 @@ const A={
   delGoal:d=>confirmBox('Excluir esta meta?',async()=>{await remove('goals',d.id);render()}),
   dedupe:d=>{const g=dupGroups()[+d.i];if(!g)return;
     confirmBox(`Remover ${g.extra} registro(s) excedente(s) de ${esc(g.arr[0].bank)} em ${fd(g.arr[0].date)}, ${brl(g.arr[0].amount)}? Ficam os mais antigos.`,async()=>{for(const t of g.toRemove)await remove('tx',t.id);render()})},
+  conferir:async()=>{
+    modal('<h3>Conferindo…</h3>');const p=await reconciliar();render();
+    modal('<h3>🔍 Conferência de duplicidades</h3>'+(p.length?`<p><b>${p.length}</b> pagamento(s) apareciam <b>duas vezes</b> (na conta e no extrato) e agora contam só uma vez:</p><div style="max-height:46vh;overflow:auto">${p.map(([b,e])=>`<div class="row"><div class="rl"><b>${esc(b.desc)}</b><small>extrato: ${esc(e.desc)} · ${fd(e.date).slice(0,5)}</small></div><div class="rr out">${brl(b.amount)}</div></div>`).join('')}</div>`:'<p>Nenhuma duplicidade encontrada. Cada pagamento já conta uma vez só.</p>')+'<button class="b" data-a="close">Ok</button>');
+  },
+  desfazImp:d=>confirmBox('Desfazer esta importação? Os lançamentos dela saem do app, e as contas que ela quitou voltam a pendentes. Depois você pode importar o PDF de novo.',async()=>{await desfazerImport(d.id);render();toast('Importação desfeita')}),
   verResumo:()=>{closeModal();state.tab='resumo';if(window._impMes)state.month=window._impMes;render()},
   own:d=>{window._imp.rows[+d.i].own=d.checked},
   imp:d=>{window._imp.rows[+d.i].skip=!d.checked;updImpCount()},
