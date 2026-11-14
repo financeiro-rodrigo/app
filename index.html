@@ -95,7 +95,7 @@ const JUR=/JUROS|ENCARGO|\bMORA\b|MULTA|CHEQUE ESPECIAL/i;
 const OWN=/RODRIGO\s+G(OMES)?(\s+B(O|OR|ORG|ORGE|ORGES)?)?\s*$|RODRIGO\s+GOMES\s+B|RODRIGO\s+G\s+BORGES|CLINICA PSICOLOGICA RODRIGO|RODRIGOGBORGES|DOUGLAS\s+IGOR\s+MARQ/i;
 const autoCat=(desc,dir)=>TAX.test(desc)?'Impostos':JUR.test(desc)?'Juros':(dir!=='in'&&TARF.test(desc))?'Tarifas bancárias':dir==='in'?'Atendimentos':'Outros';
 
-const state={cmode:'falta',tx:[],cards:[],goals:[],imports:[],config:[],notes:[],modelos:[],csub:'mes',cview:'venc',resOpen:'',catOpen:'',pagasOpen:false,open:new Set(),tab:'resumo',sub:'div',month:localToday().slice(0,7)};
+const state={cmode:'falta',finOpen:'',tx:[],cards:[],goals:[],imports:[],config:[],notes:[],modelos:[],csub:'mes',cview:'venc',resOpen:'',catOpen:'',pagasOpen:false,open:new Set(),tab:'resumo',sub:'div',month:localToday().slice(0,7)};
 
 /* ---------- dados: guardados no aparelho e sincronizados com o Google Drive ---------- */
 const COLS=['tx','cards','goals','imports','config','notes','modelos'];
@@ -281,7 +281,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14l';
+const APP_VER='2026-11-14m';
 const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
@@ -329,12 +329,32 @@ function vResumo(){
   const painel=state.resOpen&&dados[state.resOpen]!==undefined?`<div class="card"><b>${titulos[state.resOpen]}</b>${dados[state.resOpen].replace(/<button class="s" data-a="tab" data-k="recados">[^<]*<\/button>$/,'')?dados[state.resOpen]:'<p class="note">Nada aqui. 🎉</p>'}</div>`:'';
   const avisoSync=syncPronto()?'':`<div class="alert">Os dados estão só neste aparelho. Em <b>Mais › Configurações</b> conecte o Google Drive para sincronizar com o Douglas.</div>`;
   return avisoSync+quick+tilesH+painel+monthNav()+`<div class="grid">
-  <div class="card"><div class="k">Dinheiro que entrou</div><div class="v in">${brl(s.ent)}</div><div class="note">recebido neste mês</div></div>
-  <div class="card"><div class="k">Dinheiro que saiu</div><div class="v out">${brl(s.sai)}</div><div class="note">contas já pagas</div></div>
-  <div class="card"><div class="k">Ainda falta pagar</div><div class="v pend">${brl(s.pen)}</div><div class="note">contas em aberto</div></div>
-  <div class="card"><div class="k">Saldo até agora</div><div class="v ${s.saldo<0?'out':'in'}">${brl(s.saldo)}</div><div class="note">entrou − saiu</div><div class="note">se pagar o que falta: <b>${brl(s.saldo-s.pen)}</b></div></div></div>
+  ${[['ent','Dinheiro que entrou',brl(s.ent),'in','recebido neste mês'],['sai','Dinheiro que saiu',brl(s.sai),'out','contas já pagas'],['pen','Ainda falta pagar',brl(s.pen),'pend','contas em aberto'],['saldo','Saldo até agora',brl(s.saldo),s.saldo<0?'out':'in','entrou − saiu']].map(([k,r,v,cl,nt])=>`<div class="card" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'border-color:var(--pri);box-shadow:0 0 0 1px var(--pri) inset':''}"><div class="k">${r} ${state.finOpen===k?'▼':'▸'}</div><div class="v ${cl}">${v}</div><div class="note">${nt}</div>${k==='saldo'?`<div class="note">se pagar o que falta: <b>${brl(s.saldo-s.pen)}</b></div>`:'<div class="note">toque para ver o detalhe</div>'}</div>`).join('')}</div>
+  ${painelFin(s)}
   <div class="card"><b>Saídas por categoria</b> <small class="note">toque para ver os lançamentos</small><div style="margin-top:8px">${bars}</div></div>
   <p class="note">Transferências entre contas próprias ficam fora de entradas e saídas. Valores de cheque especial são estimativas (aba Dívidas).</p>`;
+}
+function painelFin(s){
+  const k=state.finOpen;if(!k)return'';
+  const L=state.tx.filter(inMonth).filter(live);
+  const origem=t=>t.origin==='extrato'?'extrato '+(t.bank||''):'conta'+(t.bank?' · pago via '+t.bank:'');
+  const mov=(t,cl)=>`<div class="row"><div class="rl"><b>${esc(t.desc)}</b><small>${fd(t.date).slice(0,5)} · ${esc(origem(t))} · ${esc(t.category||'—')}</small></div><div class="rr ${cl}">${brl(t.amount)}<div><button class="s" data-a="edit" data-id="${t.id}">Editar</button></div></div></div>`;
+  const soma=X=>X.reduce((a,t)=>a+(+t.amount||0),0);
+  const ord=X=>[...X].sort((a,b)=>b.date.localeCompare(a.date));
+  const transf=L.filter(t=>t.kind==='transfer');
+  const notaTr=transf.length?`<p class="note">${transf.length} transferência(s) entre contas próprias (${brl(soma(transf))}) ficam de fora desta soma.</p>`:'';
+  let corpo='';
+  if(k==='ent'||k==='sai'){
+    const X=L.filter(t=>t.kind===(k==='ent'?'in':'out')&&t.status==='pago');
+    const dc=X.filter(t=>t.origin!=='extrato'),de=X.filter(t=>t.origin==='extrato');
+    corpo=`<b>${k==='ent'?'O que entrou':'O que saiu'} — ${brl(soma(X))}</b><p class="note">${X.length} lançamentos: ${dc.length} de contas (${brl(soma(dc))}) + ${de.length} do extrato sem conta correspondente (${brl(soma(de))}).</p>${ord(X).map(t=>mov(t,k==='ent'?'in':'out')).join('')||'<p class="note">Nada neste mês.</p>'}${notaTr}`;
+  }else if(k==='pen'){
+    const X=L.filter(t=>t.kind==='out'&&t.status==='pendente').sort((a,b)=>a.date.localeCompare(b.date));
+    corpo=`<b>Ainda falta pagar — ${brl(soma(X))}</b>${X.map(t=>mov(t,'pend')).join('')||'<p class="note">Tudo pago. 🎉</p>'}`;
+  }else{
+    corpo=`<b>Como chegou nesse saldo</b><div class="row"><div class="rl"><b>Entrou</b></div><div class="rr in">+ ${brl(s.ent)}</div></div><div class="row"><div class="rl"><b>Saiu</b></div><div class="rr out">− ${brl(s.sai)}</div></div><div class="row"><div class="rl"><b>Saldo até agora</b></div><div class="rr ${s.saldo<0?'out':'in'}">${brl(s.saldo)}</div></div><div class="row"><div class="rl"><b>Ainda falta pagar</b></div><div class="rr pend">− ${brl(s.pen)}</div></div><div class="row"><div class="rl"><b>Se pagar tudo que falta</b></div><div class="rr ${s.saldo-s.pen<0?'out':'in'}">${brl(s.saldo-s.pen)}</div></div>`;
+  }
+  return`<div class="card">${corpo}</div>`;
 }
 function vLanc(){
   const L=state.tx.filter(inMonth).filter(live).sort((a,b)=>b.date.localeCompare(a.date));
@@ -861,6 +881,7 @@ const A={
     modal('<h3>🔍 Conferência de duplicidades</h3>'+(p.length?`<p><b>${p.length}</b> pagamento(s) apareciam <b>duas vezes</b> (na conta e no extrato) e agora contam só uma vez:</p><div style="max-height:46vh;overflow:auto">${p.map(([b,e])=>`<div class="row"><div class="rl"><b>${esc(b.desc)}</b><small>extrato: ${esc(e.desc)} · ${fd(e.date).slice(0,5)}</small></div><div class="rr out">${brl(b.amount)}</div></div>`).join('')}</div>`:'<p>Nenhuma duplicidade encontrada. Cada pagamento já conta uma vez só.</p>')+'<button class="b" data-a="close">Ok</button>');
   },
   desfazImp:d=>confirmBox('Desfazer esta importação? Os lançamentos dela saem do app, e as contas que ela quitou voltam a pendentes. Depois você pode importar o PDF de novo.',async()=>{await desfazerImport(d.id);render();toast('Importação desfeita')}),
+  finTog:d=>{state.finOpen=state.finOpen===d.k?'':d.k;render()},
   cmode:d=>{state.cmode=d.k;render()},
   verResumo:()=>{closeModal();state.tab='resumo';if(window._impMes)state.month=window._impMes;render()},
   own:d=>{window._imp.rows[+d.i].own=d.checked},
