@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14w';
+const APP_VER='2026-11-14x';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -540,7 +540,10 @@ function vCfg(){
   <button class="b" data-a="cfgIA">Salvar</button> <button class="b g" data-a="cfgTestar">Testar chave</button><p class="note">Versão do app: ${typeof APP_VER!=='undefined'?APP_VER:'?'}</p></div>
   <div class="card"><b>Backup dos dados</b>
   <p class="note">Baixe uma cópia ou traga os dados de outro lugar (por exemplo, do app antigo). Importar nunca apaga o que já existe.</p>
-  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="bkExport">Baixar backup</button><label class="b g">Importar arquivo<input type="file" accept="application/json,.json" data-a="backup" hidden></label><button class="b g" data-a="bkColar">Colar dados</button></div></div>`;
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="bkExport">Baixar backup</button><label class="b g">Importar arquivo<input type="file" accept="application/json,.json" data-a="backup" hidden></label><button class="b g" data-a="bkColar">Colar dados</button></div></div>
+  <div class="card"><b>Apagar contas e faturas</b>
+  <p class="note">Apaga de uma vez todas as contas a pagar e as faturas de cartão (pagas e pendentes). Não mexe no extrato, nos lançamentos que você fez à mão, nem nos cartões cadastrados. Dica: baixe o backup antes.</p>
+  <button class="b g" data-a="limparContas" style="border-color:#c0392b;color:#c0392b">Apagar contas e faturas</button></div>`;
 }
 function vCartoes(){
   const t0=localToday();
@@ -931,6 +934,8 @@ const A={
     modal(`<h3>Fatura — ${esc(c.name)}</h3><label class="f">Valor da fatura (R$)</label><input id="fV" inputmode="decimal"><label class="f">Vencimento</label><input id="fT" type="date" value="${base}-${dia}"><label class="f">Situação</label><select id="fS"><option value="pendente">Não paga</option><option value="pago">Paga</option></select><button class="b" id="fOk">Salvar</button> <button class="b g" data-a="close">Cancelar</button>`);
     $('#fOk').onclick=async()=>{const v=num($('#fV').value);if(!v)return toast('Informe o valor');
       await save('tx',{kind:'out',desc:'Fatura '+c.name,amount:v,date:$('#fT').value,status:$('#fS').value,category:'Cartão',cardId:c.id,origin:'cartao',createdAt:new Date().toISOString()});closeModal();render()}},
+  limparContas:()=>{const L=state.tx.filter(t=>t.origin==='conta'||t.origin==='cartao'||t.cardId);if(!L.length){toast('Não há contas nem faturas para apagar');return}
+    confirmBox(`Apagar ${L.length} conta(s) e fatura(s)? O extrato e os lançamentos feitos à mão ficam. Não dá para desfazer (só importando um backup).`,async()=>{const now=Date.now();L.forEach(t=>{STORE.tx[t.id]={id:t.id,_d:true,_u:now}});persist();loadState();agendarSync();render();toast(L.length+' apagado(s)')})},
   delCard:d=>confirmBox('Excluir este cartão? As faturas dele continuam nos lançamentos.',async()=>{await remove('cards',d.id);render()}),
   tema:d=>{SET.tema=d.k;saveSet();aplicarTema();render()},
   syncAgora:()=>{if(!syncPronto()){state.tab='mais';state.sub='cfg';render();return toast('Preencha a chave do Google e a pasta')}syncNow(true)},
