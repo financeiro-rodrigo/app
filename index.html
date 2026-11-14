@@ -281,7 +281,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14n';
+const APP_VER='2026-11-14m';
 const TABS=[['resumo','Resumo','🏠'],['contas','Contas','🧾'],['cartoes','Cartões','💳'],['extrato','Extratos','📥'],['recados','Recados','💬'],['mais','Mais','⚙️']];
 const NAMES=['Rodrigo','Douglas'];
 let ME=null;try{ME=localStorage.getItem('mf_me')}catch(e){}
@@ -347,11 +347,7 @@ function painelFin(s){
   if(k==='ent'||k==='sai'){
     const X=L.filter(t=>t.kind===(k==='ent'?'in':'out')&&t.status==='pago');
     const dc=X.filter(t=>t.origin!=='extrato'),de=X.filter(t=>t.origin==='extrato');
-    const sec=(tit,expl,Y)=>Y.length?`<div style="margin-top:10px"><b>${tit} — ${brl(soma(Y))}</b><div class="note">${expl}</div>${ord(Y).map(t=>mov(t,k==='ent'?'in':'out')).join('')}</div>`:'';
-    corpo=`<b>${k==='ent'?'Total que entrou':'Total que saiu'}: ${brl(soma(X))}</b><p class="note">Esse total é a soma de duas partes. Se um mesmo pagamento aparecer nas duas, ele é contado dobrado: use <b>Extratos › Conferir duplicidades</b>.</p>`+
-      (k==='sai'?sec('1) Contas que você marcou como pagas',`${dc.length} lançamento(s) das Contas (planilha). Não vêm do banco.`,dc):'')+
-      sec(k==='sai'?'2) Saídas que vieram do extrato do banco':'Entradas que vieram do extrato do banco',`${de.length} lançamento(s) lidos do PDF.`,de)+
-      (k==='ent'&&!X.length?'<p class="note">Nada neste mês.</p>':'')+notaTr;
+    corpo=`<b>${k==='ent'?'O que entrou':'O que saiu'} — ${brl(soma(X))}</b><p class="note">${X.length} lançamentos: ${dc.length} de contas (${brl(soma(dc))}) + ${de.length} do extrato sem conta correspondente (${brl(soma(de))}).</p>${ord(X).map(t=>mov(t,k==='ent'?'in':'out')).join('')||'<p class="note">Nada neste mês.</p>'}${notaTr}`;
   }else if(k==='pen'){
     const X=L.filter(t=>t.kind==='out'&&t.status==='pendente').sort((a,b)=>a.date.localeCompare(b.date));
     corpo=`<b>Ainda falta pagar — ${brl(soma(X))}</b>${X.map(t=>mov(t,'pend')).join('')||'<p class="note">Tudo pago. 🎉</p>'}`;
@@ -682,32 +678,16 @@ function previewImport(bank,fileName,rows){
 }
 function updImpCount(){const nn=window._imp.rows.filter(r=>r.isNew);const n=nn.filter(r=>!r.skip).length;const ca=$('#impAll');if(ca)ca.checked=n===nn.length&&n>0;const b=$('#impGo');if(b){b.textContent='Acrescentar '+n+' nova(s)';b.disabled=!n}}
 /* Une o mesmo pagamento que aparece em dois lugares: na conta (planilha) e no extrato. Só a conta conta nos totais. */
-async function unir(billId,extId){
-  const b=state.tx.find(t=>t.id===billId),e=state.tx.find(t=>t.id===extId);if(!b||!e)return;
-  await save('tx',{id:e.id,absorbedBy:b.id});
-  await save('tx',{id:b.id,status:'pago',matched:true,bank:e.bank,paidDate:b.paidDate||e.date,autoQuitada:b.status==='pendente'});
-}
-const _contasLivres=()=>state.tx.filter(t=>t.kind==='out'&&t.origin==='conta'&&!t._d&&!t.matched&&cents(t.amount)>0);
-const _extLivres=()=>state.tx.filter(t=>t.origin==='extrato'&&t.kind==='out'&&!t.absorbedBy).sort((a,b)=>a.date.localeCompare(b.date));
 async function reconciliar(){
   const usadas=new Set(),pares=[];
-  for(const [tolC,maxD] of [[0,7]]){   /* só une sozinho quando o valor é exatamente igual; os quase iguais viram sugestão para você confirmar */
-    for(const e of _extLivres()){
-      let best=null,bs=1e9;
-      _contasLivres().forEach(b=>{if(usadas.has(b.id))return;const df=Math.abs(cents(b.amount)-cents(e.amount));if(df>tolC||(tolC&&df===0))return;const d=daysBetween(b.paidDate||b.date,e.date);if(d>maxD)return;const sc=df+d;if(sc<bs){best=b;bs=sc}});
-      if(best){usadas.add(best.id);pares.push([best,e]);await unir(best.id,e.id)}
-    }
+  const contas=()=>state.tx.filter(t=>t.kind==='out'&&t.origin==='conta'&&!t._d&&!t.matched&&!usadas.has(t.id)&&cents(t.amount)>0);
+  const exts=state.tx.filter(t=>t.origin==='extrato'&&t.kind==='out'&&!t.absorbedBy).sort((a,b)=>a.date.localeCompare(b.date));
+  for(const e of exts){
+    let best=null,bd=99;
+    contas().forEach(b=>{if(cents(b.amount)!==cents(e.amount))return;const d=daysBetween(b.paidDate||b.date,e.date);if(d<=7&&d<bd){best=b;bd=d}});
+    if(best){usadas.add(best.id);pares.push([best,e]);await save('tx',{id:e.id,absorbedBy:best.id});await save('tx',{id:best.id,status:'pago',matched:true,bank:e.bank,paidDate:best.paidDate||e.date,autoQuitada:best.status==='pendente'})}
   }
   return pares;
-}
-function sugestoes(){
-  const out=[];const usadasE=new Set();
-  _contasLivres().filter(b=>b.status==='pago').forEach(b=>{
-    let best=null,bs=1e9;
-    _extLivres().forEach(e=>{if(usadasE.has(e.id))return;const df=Math.abs(cents(b.amount)-cents(e.amount));const d=daysBetween(b.paidDate||b.date,e.date);if(d>7||df>Math.max(500,cents(b.amount)*0.03))return;const sc=df/100+d;if(sc<bs){best=e;bs=sc}});
-    if(best){usadasE.add(best.id);out.push([b,best])}
-  });
-  return out;
 }
 async function desfazerImport(id){
   const itens=state.tx.filter(t=>t.importId===id);
@@ -898,13 +878,8 @@ const A={
     confirmBox(`Remover ${g.extra} registro(s) excedente(s) de ${esc(g.arr[0].bank)} em ${fd(g.arr[0].date)}, ${brl(g.arr[0].amount)}? Ficam os mais antigos.`,async()=>{for(const t of g.toRemove)await remove('tx',t.id);render()})},
   conferir:async()=>{
     modal('<h3>Conferindo…</h3>');const p=await reconciliar();render();
-    const sg=sugestoes();
-    modal('<h3>🔍 Conferência de duplicidades</h3>'+
-    (p.length?`<p>✅ <b>${p.length}</b> pagamento(s) estavam contados <b>duas vezes</b> (na conta e no extrato) e agora contam só uma:</p><div style="max-height:30vh;overflow:auto">${p.map(([b,e])=>`<div class="row"><div class="rl"><b>${esc(b.desc)}</b><small>extrato: ${esc(e.desc)} · ${fd(e.date).slice(0,5)}</small></div><div class="rr out">${brl(b.amount)}</div></div>`).join('')}</div>`:'<p>✅ Nenhuma repetição exata encontrada.</p>')+
-    (sg.length?`<p style="margin-top:12px">🤔 <b>${sg.length}</b> possível(is) repetição(ões) com valor <b>quase igual</b>. Se for o mesmo pagamento, toque em <b>Unir</b>:</p><div style="max-height:40vh;overflow:auto">${sg.map(([b,e])=>`<div class="row" style="display:block"><div><b>Conta:</b> ${esc(b.desc)} — ${brl(b.amount)} (${fd(b.paidDate||b.date).slice(0,5)})</div><div><b>Extrato:</b> ${esc(e.desc)} — ${brl(e.amount)} (${fd(e.date).slice(0,5)})</div><button class="s" data-a="unir" data-b="${b.id}" data-e="${e.id}">Unir (é o mesmo)</button></div>`).join('')}</div>`:'')+
-    '<br><button class="b" data-a="close">Fechar</button>');
+    modal('<h3>🔍 Conferência de duplicidades</h3>'+(p.length?`<p><b>${p.length}</b> pagamento(s) apareciam <b>duas vezes</b> (na conta e no extrato) e agora contam só uma vez:</p><div style="max-height:46vh;overflow:auto">${p.map(([b,e])=>`<div class="row"><div class="rl"><b>${esc(b.desc)}</b><small>extrato: ${esc(e.desc)} · ${fd(e.date).slice(0,5)}</small></div><div class="rr out">${brl(b.amount)}</div></div>`).join('')}</div>`:'<p>Nenhuma duplicidade encontrada. Cada pagamento já conta uma vez só.</p>')+'<button class="b" data-a="close">Ok</button>');
   },
-  unir:async d=>{await unir(d.b,d.e);render();A.conferir()},
   desfazImp:d=>confirmBox('Desfazer esta importação? Os lançamentos dela saem do app, e as contas que ela quitou voltam a pendentes. Depois você pode importar o PDF de novo.',async()=>{await desfazerImport(d.id);render();toast('Importação desfeita')}),
   finTog:d=>{state.finOpen=state.finOpen===d.k?'':d.k;render()},
   cmode:d=>{state.cmode=d.k;render()},
