@@ -309,7 +309,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14z';
+const APP_VER='2026-11-14zz';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -541,8 +541,8 @@ function vCfg(){
   <div class="card"><b>Backup dos dados</b>
   <p class="note">Baixe uma cópia ou traga os dados de outro lugar (por exemplo, do app antigo). Importar nunca apaga o que já existe.</p>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b g" data-a="bkExport">Baixar backup</button><label class="b g">Importar arquivo<input type="file" accept="application/json,.json" data-a="backup" hidden></label><button class="b g" data-a="bkColar">Colar dados</button></div>
-  <p class="note" style="margin-top:10px"><b>Planilha (CSV):</b> contas pagas e a pagar de qualquer mês, ou extrato com Recebidos e Pagamentos. Valores e situação já existentes são atualizados, sem duplicar.</p>
-  <label class="b">Importar planilha (CSV)<input type="file" accept=".csv,text/csv,text/plain" data-a="planilha" hidden></label></div>
+  <p class="note" style="margin-top:10px"><b>Planilha (Excel .xlsx ou CSV):</b> contas pagas e a pagar de qualquer mês, ou extrato com Recebidos e Pagamentos. Valores e situação já existentes são atualizados, sem duplicar.</p>
+  <label class="b">Importar planilha (Excel ou CSV)<input type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" data-a="planilha" hidden></label></div>
   <div class="card"><b>Apagar contas e faturas</b>
   <p class="note">Apaga de uma vez todas as contas a pagar e as faturas de cartão (pagas e pendentes). Não mexe no extrato, nos lançamentos que você fez à mão, nem nos cartões cadastrados. Dica: baixe o backup antes.</p>
   <button class="b g" data-a="limparContas" style="border-color:#c0392b;color:#c0392b">Apagar contas e faturas</button></div>`;
@@ -763,9 +763,34 @@ function parseCsv(txt){
 const numBR=v=>{const s=String(v||'').replace(/R\$|\s/g,'');if(!s)return null;const n=s.includes(',')?parseFloat(s.replace(/\./g,'').replace(',','.')):parseFloat(s);return isNaN(n)?null:n};
 const PL_ALIAS={'AMEP':'amep','Aluguel 503':'aluguel503','Sala Comercial':'sala','Internet 1':'internet1','Internet 2':'internet2','Uniter 1':'uniter1','Uniter 2':'uniter2','Faxineira Sala':'faxineira','Faxineira comer':'faxineira','Dona Socorro':'socorro','Contador':'contador','Faculdade':'faculdade','Inter Douglas':'inter_d','Nubank Doug':'nubank_d','Mercado Pago':'mpago','Neon Doug':'neon_d','Picpay Doug':'picpay_d','PagBank Doug':'pagbank_d','Casa e vi Doug':'casavi_d','Santander':'santander','Santander Dou':'santander','Renner D 1/7':'renner_d','Renner D 2/7':'renner_d','Light 1':'light1','Light 2':'light2','Gás':'gas','C. Casa e Vídeo':'c_casavideo','C. Renner (Mãe)':'c_renner_mae','C. Renner (Meu)':'c_renner','C. Riachuelo':'c_riachuelo','C. Leroy Merlin':'c_leroy','C. Caixa Elo':'c_elo','C. Caixa Visa':'c_visa','Cartão Neon':'c_neon','PagBank roh':'c_pagbank','C. Magazine Luiza':'c_magalu','Cartão mais':'c_mais','C. Itaú':'c_itau','Emp siemp':'emp'};
 const PL_EXTRA={'FCLRJ':['Rodrigo','Casa e clínica','Educação'],'fcl set':['Rodrigo','Casa e clínica','Educação'],'Yoga':['Rodrigo','Casa e clínica','Lazer'],'Marcondes':['Clínica','Casa e clínica','Casa e clínica'],'Aluguel 403':['Casa','Casa e clínica','Casa e clínica'],'Aluguel 1':['Casa','Casa e clínica','Casa e clínica'],'Aluguel 2':['Casa','Casa e clínica','Casa e clínica'],'Impostos Set':['Clínica','Impostos','Impostos'],'Jurus cheque e':['Rodrigo','Limites e empréstimo','Juros'],'Salário Doug':['Douglas','Contas do Douglas','Outros'],'Neon Douglas':['Douglas','Contas do Douglas','Dívidas e empréstimos'],'Impostos':['Clínica','Impostos','Impostos'],'Imposto/out':['Clínica','Impostos','Impostos']};
+async function loadXlsx(){
+  if(window.XLSX)return;
+  const fontes=['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js','https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'];
+  for(const u of fontes){try{await new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=u;sc.onload=res;sc.onerror=()=>rej();document.head.appendChild(sc)});if(window.XLSX)return}catch(e){}}
+  throw new Error('Não consegui carregar o leitor de Excel (internet?)');
+}
+const _dmy=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+async function xlsxMatrizes(file){
+  await loadXlsx();
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  return wb.SheetNames.map(n=>({nome:n,R:XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}).map(r=>r.map(c=>c instanceof Date?_dmy(c):typeof c==='number'?String(c).replace('.',','):String(c))).filter(r=>r.some(c=>c.trim()))}));
+}
 async function importarPlanilha(file){
   try{
-    const R=parseCsv(await file.text());if(R.length<2)throw new Error('Planilha vazia');
+    let R;
+    if(/\.xlsx?$/i.test(file.name)){
+      const S=(await xlsxMatrizes(file)).filter(x=>x.R.length>1);
+      const hc=x=>x.R[0].map(h=>nrm(h));
+      const contas=S.filter(x=>hc(x).some(h=>h.startsWith('competencia'))&&hc(x).some(h=>h.startsWith('conta')));
+      if(contas.length){R=contas[0].R.slice();contas.slice(1).forEach(x=>R.push(...x.R.slice(1)))}
+      else{
+        R=[['Data','Descrição','Valor','Tipo','Banco']];
+        S.forEach(x=>{const H=hc(x),iD=H.findIndex(h=>h.startsWith('data')),iS=H.findIndex(h=>h.startsWith('descri')||h.startsWith('hist')),iV=H.findIndex(h=>h.startsWith('valor')),iT=H.findIndex(h=>h.startsWith('tipo')),iB=H.findIndex(h=>h.startsWith('banco'));
+          if(iD<0||iV<0)return;const tn=/^rec|^ent|^cred/.test(nrm(x.nome))?'Recebido':/^pag|^sai|^deb/.test(nrm(x.nome))?'Pagamento':'';
+          x.R.slice(1).forEach(r=>R.push([r[iD],iS>=0?r[iS]:'',r[iV],iT>=0?r[iT]:tn,iB>=0?r[iB]:'']))});
+        if(R.length<2)throw new Error('Não achei colunas de contas (Competência, Conta, Valor, Status) nem de extrato (Data, Descrição, Valor) nas abas dessa planilha.')}
+    }else R=parseCsv(await file.text());
+    if(R.length<2)throw new Error('Planilha vazia');
     const H=R[0].map(x=>nrm(x)),col=(...ns)=>H.findIndex(h=>ns.some(n=>h.startsWith(nrm(n))));
     if(col('Competência')>=0&&col('Conta')>=0)return planilhaContas(R,H,col);
     if(col('Data')>=0&&col('Valor')>=0&&col('Tipo')>=0)return planilhaExtrato(R,col,file.name);
@@ -788,7 +813,7 @@ function planilhaContas(R,H,col){
   const iM=col('Competência'),iC=col('Conta'),iV=col('Valor'),iS=col('Status','Situação'),iD=col('Vencimento');
   const usados=new Set(),cnt={},plano=[];let ign=0;
   R.slice(1).forEach(r=>{
-    const mes=(r[iM]||'').trim(),nome=(r[iC]||'').trim();if(!/^\d{4}-\d{2}$/.test(mes)||!nome)return;
+    let mes=(r[iM]||'').trim();{const m=mes.match(/^\d{2}\/(\d{2})\/(\d{4})$/);if(m)mes=m[2]+'-'+m[1]}const nome=(r[iC]||'').trim();if(!/^\d{4}-\d{2}$/.test(mes)||!nome)return;
     if(/^limite/i.test(nome)){ign++;return}
     const v=numBR(r[iV]);const st=(r[iS]||'').trim();const pago=/^pago/i.test(st);
     const k=mes+'|'+nome;cnt[k]=(cnt[k]||0)+1;const n=cnt[k];
