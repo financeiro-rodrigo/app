@@ -46,6 +46,8 @@ button.s,a.s{border:1px solid var(--bd);background:none;color:var(--tx);border-r
 button.s.d,a.s.d{color:var(--bad)}
 .row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)}
 .row:last-child{border:0}
+.row .rl{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+html,body{overflow-x:hidden}
 .rl small{display:block;color:var(--mut);font-size:12px}
 .rr{text-align:right;white-space:nowrap;font-weight:600}
 .bar{height:8px;background:var(--bd);border-radius:5px;margin:3px 0 9px}
@@ -309,7 +311,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14zzzzzzz';
+const APP_VER='2026-11-14zzzzzzzz';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
