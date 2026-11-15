@@ -310,8 +310,8 @@ const catDoGrupo=g=>({'Cartões':'Cartão','Impostos':'Impostos','Casa e clínic
 const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
-const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14s1';
+const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
+const APP_VER='2026-11-14s2';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -384,8 +384,8 @@ function vResumo(){
   const tilesH=`<div class="g4">${tiles.map(([k,n,c,cor])=>`<div class="tile top" data-a="resTog" data-k="${k}" style="${k==='venc'&&c?'border-color:#e0705e;background:linear-gradient(160deg,#4a1c18,#2a100e)':k==='inf'?'border-color:#5fd0d6;background:linear-gradient(160deg,#0c3b40,#082428)':''}${state.resOpen===k?';outline:2px solid var(--gold)':''}">${svg(tIc[k],k==='venc'&&c?'style="stroke:#f08a78"':k==='inf'?'style="stroke:#6fe0e6"':'')}<div class="k">${n}</div><div class="v" style="color:${k==='venc'&&c?'#f08a78':k==='inf'?'#6fe0e6':'var(--gold)'}">${c}</div></div>`).join('')}</div>`;
   const painel=state.resOpen&&dados[state.resOpen]!==undefined?`<div class="card"><b>${titulos[state.resOpen]}</b>${dados[state.resOpen].replace(/<button class="s" data-a="tab" data-k="recados">[^<]*<\/button>$/,'')?dados[state.resOpen]:'<p class="note">Nada aqui. 🎉</p>'}</div>`:'';
   const avisoSync=syncPronto()?'':`<div class="alert">Os dados estão só neste aparelho. Em <b>Mais › Configurações</b> conecte o Google Drive para sincronizar com o Douglas.</div>`;
-  return avisoSync+tilesH+painel+saldoCard()+monthNav()+`<div class="g3">
-  ${[['ent','Entradas',s.ent,'m-in','up'],['sai','Saídas',s.sai,'m-out','dn'],['saldo','Sobrou no mês',s.saldo,'m-saldo','coins']].map(([k,r,v,cl,ic])=>`<div class="card money ${cl}" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'box-shadow:0 0 0 2px var(--gold)':''}">${svg(ic)}<div style="min-width:0"><div class="k">${r}</div><div class="v">${k==='saldo'&&v<0?'-':''}${brl(Math.abs(v))}</div></div></div>`).join('')}</div>
+  return avisoSync+tilesH+painel+monthNav()+`<div class="g3">
+  ${[['ent','Entradas',s.ent,'m-in','up'],['sai','Saídas',s.sai,'m-out','dn'],['saldo','Saldo atual',s.saldo,'m-saldo','coins']].map(([k,r,v,cl,ic])=>`<div class="card money ${cl}" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'box-shadow:0 0 0 2px var(--gold)':''}">${svg(ic)}<div style="min-width:0"><div class="k">${r}</div><div class="v">${k==='saldo'&&v<0?'-':''}${brl(Math.abs(v))}</div></div></div>`).join('')}</div>
   <div class="card apagar" style="${state.finOpen==='pen'?'box-shadow:0 0 0 2px var(--gold)':''}"><div data-a="finTog" data-k="pen" style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1">${svg('coins')}<div><div class="k" style="color:var(--tx)">A pagar</div><div class="v">${brl(s.pen)}</div></div></div><button class="pill" data-a="new" data-kind="out" data-pend="1">+ Conta a pagar</button></div>
   ${painelFin(s)}
   <div class="card"><div class="cathd">${svg('bars')}Saídas por categoria</div><div style="margin-top:8px">${bars}</div></div>
