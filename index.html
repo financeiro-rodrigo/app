@@ -311,7 +311,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14s3';
+const APP_VER='2026-11-15a';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -388,11 +388,23 @@ function vResumo(){
   ${[['ent','Entradas',s.ent,'m-in','up'],['sai','Saídas',s.sai,'m-out','dn'],['saldo','Saldo atual',s.saldo,'m-saldo','coins']].map(([k,r,v,cl,ic])=>`<div class="card money ${cl}" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'box-shadow:0 0 0 2px var(--gold)':''}">${svg(ic)}<div style="min-width:0"><div class="k">${r}</div><div class="v">${k==='saldo'&&v<0?'-':''}${brl(Math.abs(v))}</div></div></div>`).join('')}</div>
   <div class="card apagar" style="${state.finOpen==='pen'?'box-shadow:0 0 0 2px var(--gold)':''}"><div data-a="finTog" data-k="pen" style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1">${svg('coins')}<div><div class="k" style="color:var(--tx)">A pagar</div><div class="v">${brl(s.pen)}</div></div></div><button class="pill" data-a="new" data-kind="out" data-pend="1">+ Conta a pagar</button></div>
   ${painelFin(s)}
+  ${anoCard()}
   <div class="card"><div class="cathd">${svg('bars')}Saídas por categoria</div><div style="margin-top:8px">${bars}</div></div>
   <div class="g4">${[['Importar extrato','cloud','extrato'],['Contas fixas','cal','contas','fixas'],['Metas','target','mais','metas'],['Diagnóstico financeiro','chart','mais','diag']].map(([n,i,t,sb])=>`<div class="tile act" data-a="ir" data-t="${t}" data-s="${sb||''}">${svg(i)}<div>${n}</div></div>`).join('')}</div>
   <div class="card"><div class="cathd">${svg('card')}Meus aplicativos</div><div class="note" style="margin:6px 0">Bancos</div><div class="g3" style="margin:0 0 6px">${BANCOS.map(([n,pk])=>`<a class="tile act" href="${appUrl(pk,n)}" style="text-decoration:none;color:var(--tx)">${svg('home')}<div>${n}</div></a>`).join('')}</div><div class="note" style="margin:6px 0">Lojas e cartões</div><div class="g4" style="margin:0 0 6px">${LOJAS.map(([n,pk])=>`<a class="tile act" href="${appUrl(pk,n)}" style="text-decoration:none;color:var(--tx)">${svg('card')}<div>${n}</div></a>`).join('')}</div><p class="note" style="margin:8px 0 0">Abre o aplicativo que já está no seu aparelho. Se não abrir, vai para a Play Store.</p></div>
   <div class="card"><div class="cathd">${svg('file')}E-mail do contador</div><div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button class="pill" style="flex:1" data-a="contador">Abrir e-mails do contador</button><button class="s" data-a="contadorCfg">Alterar</button></div><p class="note" style="margin:8px 0 0">Abre o Gmail direto no marcador que você separou para o contador.</p></div>
   <p class="note">Transferências entre contas próprias ficam fora de entradas e saídas. Valores de cheque especial são estimativas (aba Dívidas).</p>`;
+}
+function anoCard(){
+  const y=state.month.slice(0,4),M=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const saiu=t=>t.kind==='out'&&t.status==='pago'&&t.origin!=='conta'&&t.origin!=='cartao';
+  const D=M.map((_,i)=>{const ym=y+'-'+String(i+1).padStart(2,'0');let e=0,o=0;state.tx.filter(live).forEach(t=>{if((t.date||'').slice(0,7)!==ym)return;if(t.kind==='in'&&t.status==='pago'&&t.kind!=='transfer')e+=+t.amount||0;else if(saiu(t))o+=+t.amount||0});return{e,o}});
+  const mx=Math.max(1,...D.flatMap(d=>[d.e,d.o])),H=90,W=420,bw=14,g=35;
+  const bars=D.map((d,i)=>{const x=8+i*g;const he=Math.round(d.e/mx*H),ho=Math.round(d.o/mx*H);
+    return`<rect x="${x}" y="${H-he+4}" width="${bw}" height="${he}" rx="2" fill="#4cc38a"/><rect x="${x+bw+2}" y="${H-ho+4}" width="${bw}" height="${ho}" rx="2" fill="#e0705e"/><text x="${x+bw}" y="${H+18}" text-anchor="middle" font-size="10" fill="#9fb0a8">${M[i]}</text>`}).join('');
+  const te=D.reduce((a,d)=>a+d.e,0),to=D.reduce((a,d)=>a+d.o,0);
+  return`<div class="card"><div class="cathd">${svg('bars')}Ano de ${y}</div><svg viewBox="0 0 ${W} ${H+24}" style="width:100%;margin-top:8px">${bars}</svg>
+  <div style="display:flex;justify-content:space-between;font-size:13px"><span><i style="display:inline-block;width:10px;height:10px;background:#4cc38a;border-radius:2px"></i> Entradas ${brl(te)}</span><span><i style="display:inline-block;width:10px;height:10px;background:#e0705e;border-radius:2px"></i> Saídas ${brl(to)}</span></div></div>`;
 }
 function painelFin(s){
   const k=state.finOpen;if(!k)return'';
