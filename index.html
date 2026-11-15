@@ -311,7 +311,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14s2';
+const APP_VER='2026-11-14s3';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -466,6 +466,7 @@ function vContasMes(){
   return monthNav()+`<div class="grid">${tile('total','Total de contas do mês',brl(tot),'','toque para ver todas')}${tile('pago','Já pago',brl(pg),'in','toque para ver as pagas')}</div>
   ${tile('falta','Falta pagar',brl(tot-pg),'pend','toque para ver as que faltam')}
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">${faltam?`<button class="b" data-a="gerar">Criar ${faltam} conta(s) fixa(s) do mês</button>`:''}<label class="b g">Ler conta (PDF)<input type="file" accept="application/pdf,.pdf" data-a="conta" hidden></label><label class="b g">Ler conta (foto)<input type="file" accept="image/*" data-a="conta" hidden></label><label class="b g">Planilha (Excel/CSV)<input type="file" data-a="planilha" hidden></label><button class="b g" data-a="new" data-kind="out" data-pend="1">+ Manual</button><a class="s wa" href="${waUrl(textoResumo(),to)}" target="_blank" rel="noopener" style="padding:10px 12px">Enviar resumo no WhatsApp</a></div>
+  ${(()=>{const C=state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);if(!C.length)return'';const f=C.filter(t=>t.status!=='pago').reduce((a,t)=>a+(+t.amount||0),0);return`<div class="card" data-a="tab" data-k="cartoes" style="cursor:pointer"><div class="k">Cartões deste mês (fora da lista acima) ▸</div><div class="v ${f?'pend':'in'}">${f?'falta '+brl(f):'tudo pago'}</div><small class="note">toque para ver em Cartões</small></div>`})()}
   ${sel}${corpo}`;
 }
 function vFixas(){
