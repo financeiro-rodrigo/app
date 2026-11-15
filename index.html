@@ -173,6 +173,49 @@ html:not([data-tema]) input,html:not([data-tema]) select{background:#fff}
 html:not([data-tema]) .modal{background:#0005}
 html:not([data-tema]) .tabs button.on{background:var(--pri);color:#fff}
 html:not([data-tema]) .apagar .v{color:var(--pri)}
+
+/* ===== ajuste fiel à imagem do layout ===== */
+html:not([data-tema]) header.hdr{height:128px;margin-bottom:34px}
+html:not([data-tema]) .hdr .menu{left:12px;top:22px;width:40px;height:40px;border:0;font-size:30px;color:#f6edcf}
+html:not([data-tema]) .hdr .brand{left:52px;right:118px;bottom:26px;display:flex;flex-direction:column;align-items:center}
+html:not([data-tema]) .hdr .knot{height:42px;margin:0 auto -2px}
+html:not([data-tema]) .hdr h1{font-size:23px;background:none;color:#f6edcf;-webkit-text-fill-color:#f6edcf;white-space:nowrap}
+html:not([data-tema]) .hdr .logos{height:34px;top:24px;right:10px}
+html:not([data-tema]) .hdr .sync{bottom:-30px;font-size:12px}
+html:not([data-tema]) .alert{padding:6px 10px;font-size:12px;margin:0 0 8px}
+html:not([data-tema]) .mnav button.s{width:44px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--bd);color:var(--tx);box-shadow:0 1px 3px #3a2e1014}
+html:not([data-tema]) .mnav b{color:var(--tx)}
+html:not([data-tema]) .tile.top{padding:10px 4px;border-radius:14px}
+html:not([data-tema]) .tile.top svg{width:26px;height:26px}
+html:not([data-tema]) .tile.top .k{font-size:12.5px;min-height:30px;color:var(--tx)}
+html:not([data-tema]) .tile.top .v{font-size:30px}
+html:not([data-tema]) .g4>.tile.top:nth-child(2){background:#f9ddd7;border-color:#ecbcb2}
+html:not([data-tema]) .g4>.tile.top:nth-child(2) .v{color:var(--bad)!important}
+html:not([data-tema]) .g4>.tile.top:nth-child(2) svg{stroke:var(--bad)}
+html:not([data-tema]) .g4>.tile.top:nth-child(4){background:#e0ebe9;border-color:#bcd3d0}
+html:not([data-tema]) .g4>.tile.top:nth-child(4) .v{color:#2a7f86!important}
+html:not([data-tema]) .g4>.tile.top:nth-child(4) svg{stroke:#2a7f86}
+html:not([data-tema]) .g4>.tile.top .v{color:var(--pri)}
+html:not([data-tema]) .money{background:#eef0df;border-color:#dfe3c8}
+html:not([data-tema]) .barra .bl:nth-of-type(2) .v{color:#e8c25a}
+html:not([data-tema]) .sec{margin:16px 0}
+html:not([data-tema]) .sec .cathd{font:600 20px Georgia,serif;margin-bottom:8px}
+html:not([data-tema]) .sec .sub{font-weight:700;font-size:14px;margin:12px 0 6px;color:var(--tx)}
+html:not([data-tema]) .ga{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+html:not([data-tema]) .app{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:8px 10px;color:var(--tx);text-decoration:none;box-shadow:0 1px 4px #3a2e1016;min-height:52px}
+html:not([data-tema]) .app.full{grid-column:1/-1}
+html:not([data-tema]) .app b{flex:1;font-weight:600;font-size:15px;line-height:1.15;min-width:0}
+html:not([data-tema]) .app i{font-style:normal;font-size:22px;color:var(--tx)}
+html:not([data-tema]) .mono{width:36px;height:36px;border-radius:9px;background:#dfe9d3;color:var(--pri);font:700 18px Georgia,serif;display:flex;align-items:center;justify-content:center;flex:none}
+html:not([data-tema]) .ctd{display:flex;gap:10px;align-items:center}
+html:not([data-tema]) .ctd .pill{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:12px;font:600 16px Georgia,serif}
+html:not([data-tema]) .ctd .pill svg{width:22px;height:22px;stroke:#f6edcf;fill:none;stroke-width:1.7}
+html:not([data-tema]) .ctd .alt{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:12px 16px;color:var(--tx);font-size:15px;box-shadow:0 1px 4px #3a2e1016}
+html:not([data-tema]) nav{left:0;right:0;bottom:0;max-width:none;margin:0;border-radius:0;border:0;border-top:1px solid var(--bd);box-shadow:none;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0));background:#faf6ec}
+html:not([data-tema]) nav button{font-family:system-ui,sans-serif;font-size:12.5px;min-height:56px;border-radius:16px;font-weight:500}
+html:not([data-tema]) nav button.on{font-weight:600}
+html:not([data-tema]) nav button svg{width:24px;height:24px}
+html:not([data-tema]) .tile.act{padding:12px 2px}html:not([data-tema]) .tile.act div{font-size:13.5px}html:not([data-tema]) .tile.act svg{width:32px;height:32px}
 </style>
 </head>
 <body>
@@ -302,7 +345,7 @@ function agendarSync(){clearTimeout(SYNC.timer);SYNC.timer=setTimeout(()=>syncNo
 function setStatus(){
   const s=$('#sync');if(!s)return;
   s.classList.toggle('off',!!SYNC.err||!syncPronto());
-  s.textContent=!syncPronto()?'só neste aparelho':SYNC.busy?'sincronizando…':SYNC.err?'toque para sincronizar':SYNC.last?'sincronizado '+new Date(SYNC.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'toque para sincronizar';
+  s.textContent=!syncPronto()?'só neste aparelho':SYNC.busy?'sincronizando…':SYNC.err?'toque para sincronizar':SYNC.last?'Sincronizado às '+new Date(SYNC.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' ⟳':'toque para sincronizar';
 }
 function importarBackup(txt){
   const o=JSON.parse(String(txt).replace(/^\uFEFF/,''));const cols=o.cols||o;let n=0;
@@ -365,13 +408,15 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-15L2';
+const APP_VER='2026-11-15L3';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
 card:'<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6 15h4"/>',
 down:'<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',
 chat:'<path d="M4 5h16v11H9l-5 4z"/>',
+bars2:'<path d="M12 3 3 8l9 5 9-5z"/><path d="M3 13l9 5 9-5"/>',
+mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
 grid:'<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
 alert:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
 cal:'<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
@@ -386,7 +431,7 @@ bars:'<path d="M5 20V11M11 20V4M17 20v-7"/>'
 };
 const svg=(n,x='')=>`<svg viewBox="0 0 24 24" ${x}>${IC[n]||''}</svg>`;
 const BANCOS=[['Itaú','com.itau'],['Caixa','br.com.gabba.Caixa']];
-const LOJAS=[['Mais!','br.com.credsystem.appmais'],['Leroy Merlin Pay','br.com.pefisa.appleroymerlinpay'],['Cartão Casa e Vídeo','br.com.portaldocartao.cartaocasaevideo'],['Renner','br.com.lojasrenner'],['Riachuelo','']];
+const LOJAS=[['Mais!','br.com.credsystem.appmais'],['Leroy Merlin Pay','br.com.pefisa.appleroymerlinpay'],['Casa e Vídeo','br.com.portaldocartao.cartaocasaevideo'],['Renner','br.com.lojasrenner'],['Riachuelo','']];
 const appUrl=(pk,nome)=>pk?'intent://#Intent;package='+pk+';S.browser_fallback_url='+encodeURIComponent('https://play.google.com/store/apps/details?id='+pk)+';end':'https://play.google.com/store/search?c=apps&q='+encodeURIComponent(nome);
 const gmailUrl=()=>{const l=(SET.contLabel||'').trim();if(!l)return'';const u=(SET.gmail||'').trim();return'https://mail.google.com/mail/'+(u?'?authuser='+encodeURIComponent(u):'')+'#label/'+encodeURIComponent(l).replace(/%20/g,'+')};
 const CATIC={'Casa e clínica':'home','Cartão':'card','Impostos':'doc','Outros':'grid'};
@@ -434,19 +479,19 @@ function vResumo(){
   const dados={rec:recRows+`<button class="s" data-a="tab" data-k="recados">+ Novo recado</button>`,venc:vencidas.map(t=>lin(t,pagar(t))).join(''),p7:prox7.map(t=>lin(t,pagar(t))).join(''),inf:ainfo.map(t=>lin(t,informar(t))).join('')};
   const titulos={rec:'Recados em aberto',venc:'Vencidas',p7:'Vencem nos próximos 7 dias',inf:'Faturas a informar'};
   const tiles=[['rec','Recados',abertos.length,'var(--warn)'],['venc','Vencidas',vencidas.length,'var(--bad)'],['p7','Vencem em 7 dias',prox7.length,'var(--warn)'],['inf','Faturas a informar',ainfo.length,'var(--pur)']];
-  const tIc={rec:'file',venc:'alert',p7:'cal',inf:'file'};
+  const tIc={rec:'chat',venc:'alert',p7:'cal',inf:'file'};
   const tilesH=`<div class="g4">${tiles.map(([k,n,c,cor])=>`<div class="tile top" data-a="resTog" data-k="${k}" style="${k==='venc'&&c?'border-color:#e0705e;background:linear-gradient(160deg,#4a1c18,#2a100e)':k==='inf'?'border-color:#5fd0d6;background:linear-gradient(160deg,#0c3b40,#082428)':''}${state.resOpen===k?';outline:2px solid var(--gold)':''}">${svg(tIc[k],k==='venc'&&c?'style="stroke:#f08a78"':k==='inf'?'style="stroke:#6fe0e6"':'')}<div class="k">${n}</div><div class="v" style="color:${k==='venc'&&c?'#f08a78':k==='inf'?'#6fe0e6':'var(--gold)'}">${c}</div></div>`).join('')}</div>`;
   const painel=state.resOpen&&dados[state.resOpen]!==undefined?`<div class="card"><b>${titulos[state.resOpen]}</b>${dados[state.resOpen].replace(/<button class="s" data-a="tab" data-k="recados">[^<]*<\/button>$/,'')?dados[state.resOpen]:'<p class="note">Nada aqui. 🎉</p>'}</div>`:'';
   const avisoSync=syncPronto()?'':`<div class="alert">Os dados estão só neste aparelho. Em <b>Mais › Configurações</b> conecte o Google Drive para sincronizar com o Douglas.</div>`;
   return avisoSync+monthNav()+tilesH+painel+`<div class="g2">
   ${[['ent','Entradas',s.ent,'m-in','up'],['sai','Saídas',s.sai,'m-out','dn']].map(([k,r,v,cl,ic])=>`<div class="card money ${cl}" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'box-shadow:0 0 0 2px var(--gold)':''}">${svg(ic)}<div style="min-width:0"><div class="k">${r}</div><div class="v">${k==='saldo'&&v<0?'-':''}${brl(Math.abs(v))}</div></div></div>`).join('')}</div>
-  <div class="card barra"><div class="bl" data-a="finTog" data-k="saldo" style="${state.finOpen==='saldo'?'box-shadow:0 0 0 2px #e8c25a;border-radius:12px':''}">${svg('coins')}<div><div class="k">Saldo atual</div><div class="v">${s.saldo<0?'-':''}${brl(Math.abs(s.saldo))}</div></div></div><i class="sep"></i><div class="bl" data-a="finTog" data-k="pen" style="${state.finOpen==='pen'?'box-shadow:0 0 0 2px #e8c25a;border-radius:12px':''}">${svg('cal')}<div><div class="k">A pagar</div><div class="v">${brl(s.pen)}</div></div></div><button class="mais" data-a="new" data-kind="out" data-pend="1" aria-label="Nova conta a pagar">+</button></div>
+  <div class="card barra"><div class="bl" data-a="finTog" data-k="saldo" style="${state.finOpen==='saldo'?'box-shadow:0 0 0 2px #e8c25a;border-radius:12px':''}">${svg('coins')}<div><div class="k">Saldo atual</div><div class="v">${s.saldo<0?'-':''}${brl(Math.abs(s.saldo))}</div></div></div><i class="sep"></i><div class="bl" data-a="finTog" data-k="pen" style="${state.finOpen==='pen'?'box-shadow:0 0 0 2px #e8c25a;border-radius:12px':''}">${svg('cal')}<div><div class="k">A pagar</div><div class="v">${brl(s.pen)}</div></div></div></div>
   ${painelFin(s)}
   ${anoCard()}
   <div class="card"><div class="cathd">${svg('bars')}Saídas por categoria</div><div style="margin-top:8px">${bars}</div></div>
   <div class="g4">${[['Importar extrato','cloud','extrato'],['Contas fixas','cal','contas','fixas'],['Metas','target','mais','metas'],['Diagnóstico financeiro','chart','mais','diag']].map(([n,i,t,sb])=>`<div class="tile act" data-a="ir" data-t="${t}" data-s="${sb||''}">${svg(i)}<div>${n}</div></div>`).join('')}</div>
-  <div class="card"><div class="cathd">${svg('card')}Meus aplicativos</div><div class="note" style="margin:6px 0">Bancos</div><div class="g3" style="margin:0 0 6px">${BANCOS.map(([n,pk])=>`<a class="tile act" href="${appUrl(pk,n)}" style="text-decoration:none;color:var(--tx)">${svg('home')}<div>${n}</div></a>`).join('')}</div><div class="note" style="margin:6px 0">Lojas e cartões</div><div class="g4" style="margin:0 0 6px">${LOJAS.map(([n,pk])=>`<a class="tile act" href="${appUrl(pk,n)}" style="text-decoration:none;color:var(--tx)">${svg('card')}<div>${n}</div></a>`).join('')}</div><p class="note" style="margin:8px 0 0">Abre o aplicativo que já está no seu aparelho. Se não abrir, vai para a Play Store.</p></div>
-  <div class="card"><div class="cathd">${svg('file')}E-mail do contador</div><div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button class="pill" style="flex:1" data-a="contador">Abrir e-mails do contador</button><button class="s" data-a="contadorCfg">Alterar</button></div><p class="note" style="margin:8px 0 0">Abre o Gmail direto no marcador que você separou para o contador.</p></div>
+  <div class="sec"><div class="cathd">${svg('bars2')}Meus aplicativos</div><div class="sub">Bancos</div><div class="ga">${BANCOS.map(([n,pk])=>`<a class="app" href="${appUrl(pk,n)}"><span class="mono">${esc(n[0])}</span><b>${n}</b><i>›</i></a>`).join('')}</div><div class="sub">Lojas e cartões</div><div class="ga">${LOJAS.map(([n,pk],i,arr)=>`<a class="app${i===arr.length-1&&arr.length%2?' full':''}" href="${appUrl(pk,n)}"><span class="mono">${esc(n[0])}</span><b>${n}</b><i>›</i></a>`).join('')}</div><p class="note" style="margin:8px 0 0">Abre o aplicativo que já está no seu aparelho. Se não abrir, vai para a Play Store.</p></div>
+  <div class="sec"><div class="cathd">${svg('mail')}E-mail do contador</div><div class="ctd"><button class="pill" data-a="contador">${svg('mail')}Abrir e-mails do contador</button><button class="alt" data-a="contadorCfg">⚙ Alterar</button></div></div>
   <p class="note">Transferências entre contas próprias ficam fora de entradas e saídas. Valores de cheque especial são estimativas (aba Dívidas).</p>`;
 }
 function anoCard(){
