@@ -174,6 +174,29 @@ html:not([data-tema]) .modal{background:#0005}
 html:not([data-tema]) .tabs button.on{background:var(--pri);color:#fff}
 html:not([data-tema]) .apagar .v{color:var(--pri)}
 
+
+/* base para todos os temas (tamanhos e blocos novos) */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.money{display:flex;flex-direction:row;align-items:center;gap:10px;padding:12px}
+.money svg{width:26px;height:26px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.money.m-in{color:#6fd39a}.money.m-out{color:#f08a78}
+.barra{display:flex;align-items:center;gap:10px;padding:14px 12px}
+.barra .bl{display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer;padding:2px 4px}
+.barra svg{width:30px;height:30px;stroke:#e8c25a;fill:none;stroke-width:1.7;flex:none}
+.barra .v{font:600 clamp(16px,5vw,24px) Georgia,serif;white-space:nowrap}
+.barra .k{font-size:13px;color:var(--mut)}
+.barra .sep{width:1px;align-self:stretch;background:#ffffff33}
+.sec{margin:16px 0}.sec .cathd{font:600 20px Georgia,serif;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.sec .cathd svg{width:26px;height:26px;stroke:var(--gold);fill:none;stroke-width:1.7}
+.sec .sub{font-weight:700;font-size:14px;margin:12px 0 6px}
+.ga{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.app{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:8px 10px;color:var(--tx);text-decoration:none;min-height:52px}
+.app.full{grid-column:1/-1}.app b{flex:1;font-weight:600;font-size:15px;line-height:1.15;min-width:0}.app i{font-style:normal;font-size:22px}
+.mono{width:36px;height:36px;border-radius:9px;background:#ffffff18;color:var(--gold);font:700 18px Georgia,serif;display:flex;align-items:center;justify-content:center;flex:none}
+.ctd{display:flex;gap:10px;align-items:center}
+.ctd .pill{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:12px;font:600 16px Georgia,serif}
+.ctd .pill svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7}
+.ctd .alt{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 16px;color:var(--tx);font-size:15px}
 /* ===== ajuste fiel à imagem do layout ===== */
 html:not([data-tema]) header.hdr{height:128px;margin-bottom:34px}
 html:not([data-tema]) .hdr .menu{left:12px;top:22px;width:40px;height:40px;border:0;font-size:30px;color:#f6edcf}
@@ -408,7 +431,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-15L3';
+const APP_VER='2026-11-15L4';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
