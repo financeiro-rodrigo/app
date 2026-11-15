@@ -251,7 +251,7 @@ function setStatus(){
   s.textContent=!syncPronto()?'só neste aparelho':SYNC.busy?'sincronizando…':SYNC.err?'toque para sincronizar':SYNC.last?'sincronizado '+new Date(SYNC.last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'toque para sincronizar';
 }
 function importarBackup(txt){
-  const o=JSON.parse(txt);const cols=o.cols||o;let n=0;
+  const o=JSON.parse(String(txt).replace(/^\uFEFF/,''));const cols=o.cols||o;let n=0;
   COLS.forEach(c=>{const R=cols[c];if(!R)return;const arr=Array.isArray(R)?R:Object.values(R);arr.forEach(x=>{if(!x||!x.id)return;const cur=STORE[c][x.id];if(!cur||(x._u||1)>(cur._u||0)){STORE[c][x.id]={...x,_u:x._u||1};n++}})});
   if(o.vault&&o.vault.ct&&ME&&!LS.get('mf_vault_'+ME,null)){LS.set('mf_vault_'+ME,o.vault);VAULT.status='loading';VAULT.started=false}
   persist();loadState();agendarSync();render();toast(n+' registro(s) importado(s)');reconciliar().then(p=>{if(p.length){render();toast(p.length+' pagamento(s) duplicado(s) unido(s)')}});
@@ -311,7 +311,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-14zzzzzzzz';
+const APP_VER='2026-11-14s1';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -384,8 +384,8 @@ function vResumo(){
   const tilesH=`<div class="g4">${tiles.map(([k,n,c,cor])=>`<div class="tile top" data-a="resTog" data-k="${k}" style="${k==='venc'&&c?'border-color:#e0705e;background:linear-gradient(160deg,#4a1c18,#2a100e)':k==='inf'?'border-color:#5fd0d6;background:linear-gradient(160deg,#0c3b40,#082428)':''}${state.resOpen===k?';outline:2px solid var(--gold)':''}">${svg(tIc[k],k==='venc'&&c?'style="stroke:#f08a78"':k==='inf'?'style="stroke:#6fe0e6"':'')}<div class="k">${n}</div><div class="v" style="color:${k==='venc'&&c?'#f08a78':k==='inf'?'#6fe0e6':'var(--gold)'}">${c}</div></div>`).join('')}</div>`;
   const painel=state.resOpen&&dados[state.resOpen]!==undefined?`<div class="card"><b>${titulos[state.resOpen]}</b>${dados[state.resOpen].replace(/<button class="s" data-a="tab" data-k="recados">[^<]*<\/button>$/,'')?dados[state.resOpen]:'<p class="note">Nada aqui. 🎉</p>'}</div>`:'';
   const avisoSync=syncPronto()?'':`<div class="alert">Os dados estão só neste aparelho. Em <b>Mais › Configurações</b> conecte o Google Drive para sincronizar com o Douglas.</div>`;
-  return avisoSync+tilesH+painel+monthNav()+`<div class="g3">
-  ${[['ent','Entradas',s.ent,'m-in','up'],['sai','Saídas',s.sai,'m-out','dn'],['saldo','Saldo atual',s.saldo,'m-saldo','coins']].map(([k,r,v,cl,ic])=>`<div class="card money ${cl}" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'box-shadow:0 0 0 2px var(--gold)':''}">${svg(ic)}<div style="min-width:0"><div class="k">${r}</div><div class="v">${k==='saldo'&&v<0?'-':''}${brl(Math.abs(v))}</div></div></div>`).join('')}</div>
+  return avisoSync+tilesH+painel+saldoCard()+monthNav()+`<div class="g3">
+  ${[['ent','Entradas',s.ent,'m-in','up'],['sai','Saídas',s.sai,'m-out','dn'],['saldo','Sobrou no mês',s.saldo,'m-saldo','coins']].map(([k,r,v,cl,ic])=>`<div class="card money ${cl}" data-a="finTog" data-k="${k}" style="cursor:pointer;${state.finOpen===k?'box-shadow:0 0 0 2px var(--gold)':''}">${svg(ic)}<div style="min-width:0"><div class="k">${r}</div><div class="v">${k==='saldo'&&v<0?'-':''}${brl(Math.abs(v))}</div></div></div>`).join('')}</div>
   <div class="card apagar" style="${state.finOpen==='pen'?'box-shadow:0 0 0 2px var(--gold)':''}"><div data-a="finTog" data-k="pen" style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1">${svg('coins')}<div><div class="k" style="color:var(--tx)">A pagar</div><div class="v">${brl(s.pen)}</div></div></div><button class="pill" data-a="new" data-kind="out" data-pend="1">+ Conta a pagar</button></div>
   ${painelFin(s)}
   <div class="card"><div class="cathd">${svg('bars')}Saídas por categoria</div><div style="margin-top:8px">${bars}</div></div>
@@ -723,6 +723,30 @@ async function readConta(file){
   }catch(e){erroLeitura(e)}
 }
 
+/* ---------- saldo nas contas (por banco) ---------- */
+function saldoBancos(){
+  const c=cfg('saldos'),B=c.bancos||{},padrao=c.padrao||'Caixa';const out=[];
+  Object.keys(B).forEach(b=>{
+    const base=+B[b].v||0,d=B[b].d||'0000-00-00';let mov=0,pagos=0;
+    state.tx.filter(live).forEach(t=>{
+      if(t.origin==='extrato'){if(t.bank===b&&t.date>d&&(t.dir==='in'||t.dir==='out'||t.kind==='in'||t.kind==='out'))mov+=((t.dir||t.kind)==='in'?1:-1)*t.amount;return}
+      if(t.status!=='pago'||t.matched||t.kind==='transfer'||t.absorbedBy)return;
+      const bk=t.bank||padrao;if(bk!==b)return;const dt=t.paidDate||t.date;if(dt<=d)return;
+      const v=(t.kind==='in'?1:-1)*(+t.amount||0);pagos+=v;
+    });
+    out.push({b,base,d,mov,pagos,atual:base+mov+pagos});
+  });
+  return out;
+}
+function saldoCard(){
+  const L=saldoBancos(),c=cfg('saldos');
+  const faltam=banks().filter(b=>!(c.bancos||{})[b]);
+  const tot=L.reduce((a,x)=>a+x.atual,0);
+  return`<div class="card"><div class="k">Saldo total nas contas</div><div class="v ${tot<0?'out':'in'}">${brl(tot)}</div>
+  ${L.map(x=>`<div class="row"><div class="rl"><b>${esc(x.b)}</b><small>extrato de ${fd(x.d)}: ${brl(x.base)}${x.mov?' · movimentos depois: '+brl(x.mov):''}${x.pagos?' · pagos no app: '+brl(x.pagos):''}</small></div><div class="rr ${x.atual<0?'out':'in'}">${brl(x.atual)}<div><button class="s" data-a="saldoEdit" data-b="${esc(x.b)}">Atualizar</button></div></div></div>`).join('')}
+  ${faltam.map(b=>`<button class="s" data-a="saldoEdit" data-b="${esc(b)}">+ Informar saldo do ${esc(b)}</button>`).join(' ')}
+  <p class="note">Parte do saldo do último extrato, desconta o que você marca como pago no app e soma os extratos novos. Atualize o saldo quando importar um extrato.</p></div>`;
+}
 /* ---------- leitura de PDF com os cartões ---------- */
 const nrm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 function achaCartao(nome){const n=nrm(nome);if(!n)return null;return state.cards.find(c=>{const k=nrm(c.name);return k&&(k===n||k.includes(n)||n.includes(k))})||null}
@@ -966,6 +990,8 @@ async function confirmImport(){
     if(match){usados.add(match.id);await save('tx',{id:match.id,status:'pago',matched:true,bank});quitadas.push(match.desc)}
   }
   await save('imports',{id:impId,bank,fileName,createdAt:now,added:novas.length,skipped:rows.length-novas.length});
+  try{const com=rows.filter(r=>r.saldo!=null);if(com.length>1){const asc=rows[0].date<rows[rows.length-1].date;const u=asc?rows[rows.length-1]:rows[0];const o=cfg('saldos'),B={...(o.bancos||{})};
+    if(u.saldo!=null&&!(B[bank]&&B[bank].d>u.date)){B[bank]={v:u.saldo,d:u.date};await save('config',{id:'saldos',bancos:B,padrao:o.padrao||'Caixa'})}}}catch(e){}
   closeModal();render();
   const ent=novas.filter(r=>r.dir==='in'&&!r.own).reduce((a,r)=>a+r.amount,0),sai=novas.filter(r=>r.dir==='out'&&!r.own).reduce((a,r)=>a+r.amount,0),nTr=novas.filter(r=>r.own).length;
   const meses=novas.map(r=>r.date.slice(0,7)).sort();window._impMes=meses[meses.length-1]||state.month;
@@ -1067,6 +1093,11 @@ const A={
     $('#fOk').onclick=async()=>{const v=num($('#fV').value);if(!v)return toast('Informe o valor');
       await save('tx',{kind:'out',desc:'Fatura '+c.name,amount:v,date:$('#fT').value,status:$('#fS').value,category:'Cartão',cardId:c.id,origin:'cartao',createdAt:new Date().toISOString()});closeModal();render()}},
   plBanco:d=>{previewImport(d.b,window._plNome,window._plRows,0)},
+  saldoEdit:d=>{const c=cfg('saldos'),cur=(c.bancos||{})[d.b]||{};const padrao=(c.padrao||'Caixa')===d.b;
+    modal(`<h3>Saldo — ${esc(d.b)}</h3><p class="note">Informe o saldo que aparece no fim do extrato do banco e a data dele.</p><label class="f">Saldo (R$) — use - se estiver negativo</label><input id="sdV" inputmode="decimal" value="${cur.v!=null?String(cur.v).replace('.',','):''}" placeholder="0,00"><label class="f">Data do saldo</label><input id="sdD" type="date" value="${cur.d||localToday()}">
+    <label style="display:flex;gap:10px;align-items:center;margin:12px 0"><input type="checkbox" id="sdP" ${padrao?'checked':''} style="width:auto;margin:0;transform:scale(1.4)"> É daqui que eu pago as contas e cartões</label><button class="b" id="sdOk">Salvar</button> <button class="b g" data-a="close">Cancelar</button>`);
+    $('#sdOk').onclick=async()=>{const v=num($('#sdV').value);if(isNaN(v))return toast('Informe o saldo');const o=cfg('saldos');const B={...(o.bancos||{})};B[d.b]={v,d:$('#sdD').value||localToday()};
+      await save('config',{id:'saldos',bancos:B,padrao:$('#sdP').checked?d.b:(o.padrao===d.b?'':o.padrao||'')});closeModal();render()}},
   limparTudo:()=>{const C=['tx','cards','modelos','imports'];const n=C.reduce((a,c)=>a+Object.values(STORE[c]||{}).filter(x=>x&&!x._d).length,0);
     if(!n){toast('Não há nada para apagar');return}
     confirmBox(`Apagar TUDO (${n} registros: contas, faturas, extratos, cartões, contas fixas e importações)? Recados, cofre e metas ficam. Não dá para desfazer (só importando de novo).`,async()=>{const now=Date.now();C.forEach(c=>Object.values(STORE[c]||{}).forEach(x=>{if(x&&x.id&&!x._d)STORE[c][x.id]={id:x.id,_d:true,_u:now}}));persist();loadState();agendarSync();render();toast(n+' registros apagados')})},
