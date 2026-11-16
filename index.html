@@ -239,6 +239,18 @@ html:not([data-tema]) nav button{font-family:system-ui,sans-serif;font-size:12.5
 html:not([data-tema]) nav button.on{font-weight:600}
 html:not([data-tema]) nav button svg{width:24px;height:24px}
 html:not([data-tema]) .tile.act{padding:12px 2px}html:not([data-tema]) .tile.act div{font-size:13.5px}html:not([data-tema]) .tile.act svg{width:32px;height:32px}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 4px;margin:10px 0}
+.stats .st{display:grid;grid-template-columns:22px 1fr;column-gap:6px;align-items:center;padding:2px 8px;cursor:pointer;border-left:1px solid var(--bd)}
+.stats .st:first-child{border-left:0}
+.stats .st.on{outline:2px solid var(--gold);border-radius:10px}
+.stats .st svg{width:22px;height:22px;stroke:var(--pri);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.stats .sk{font-size:13px;line-height:1.15}
+.stats .sv{grid-column:1/-1;font:700 28px Georgia,serif;margin-top:2px}
+.stats .st:nth-child(2) svg{stroke:var(--bad)}
+.tile.act svg{width:28px!important;height:28px!important}
+.tile.act div{font-size:13px!important}
+.tile.act{padding:10px 2px!important}
 </style>
 </head>
 <body>
@@ -431,7 +443,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-15L4';
+const APP_VER='2026-11-16L1';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -501,9 +513,9 @@ function vResumo(){
   const recRows=abertos.map(n=>`<div class="row"><div class="rl"><b>${esc(n.text)}</b><small>${esc(n.from)} → ${esc(n.to)}${n.due?' · lembrar em '+fd(n.due).slice(0,5)+(n.due<t0?' <span class="out">(passou)</span>':''):''}${noteForMe(n)?' · <span class="pend">para você</span>':''}</small></div><div class="rr"><a class="s wa" href="${waUrl('Recado de '+n.from+': '+n.text,n.to==='Os dois'?(ME?outroDe(ME):''):n.to)}" target="_blank" rel="noopener">WhatsApp</a><button class="s" data-a="noteDone" data-id="${n.id}">Resolvido ✓</button></div></div>`).join('');
   const dados={rec:recRows+`<button class="s" data-a="tab" data-k="recados">+ Novo recado</button>`,venc:vencidas.map(t=>lin(t,pagar(t))).join(''),p7:prox7.map(t=>lin(t,pagar(t))).join(''),inf:ainfo.map(t=>lin(t,informar(t))).join('')};
   const titulos={rec:'Recados em aberto',venc:'Vencidas',p7:'Vencem nos próximos 7 dias',inf:'Faturas a informar'};
-  const tiles=[['rec','Recados',abertos.length,'var(--warn)'],['venc','Vencidas',vencidas.length,'var(--bad)'],['p7','Vencem em 7 dias',prox7.length,'var(--warn)'],['inf','Faturas a informar',ainfo.length,'var(--pur)']];
-  const tIc={rec:'chat',venc:'alert',p7:'cal',inf:'file'};
-  const tilesH=`<div class="g4">${tiles.map(([k,n,c,cor])=>`<div class="tile top" data-a="resTog" data-k="${k}" style="${k==='venc'&&c?'border-color:#e0705e;background:linear-gradient(160deg,#4a1c18,#2a100e)':k==='inf'?'border-color:#5fd0d6;background:linear-gradient(160deg,#0c3b40,#082428)':''}${state.resOpen===k?';outline:2px solid var(--gold)':''}">${svg(tIc[k],k==='venc'&&c?'style="stroke:#f08a78"':k==='inf'?'style="stroke:#6fe0e6"':'')}<div class="k">${n}</div><div class="v" style="color:${k==='venc'&&c?'#f08a78':k==='inf'?'#6fe0e6':'var(--gold)'}">${c}</div></div>`).join('')}</div>`;
+  const tiles=[['rec','Recados',abertos.length,'var(--pri)'],['venc','Vencidas',vencidas.length,'var(--bad)'],['p7','Vencem em 7 dias',prox7.length,'var(--pri)']];
+  const tIc={rec:'chat',venc:'alert',p7:'cal'};
+  const tilesH=`<div class="card stats">${tiles.map(([k,n,c,cor])=>`<div class="st${state.resOpen===k?' on':''}" data-a="resTog" data-k="${k}">${svg(tIc[k])}<div class="sk">${n}</div><div class="sv" style="color:${cor}">${c}</div></div>`).join('')}</div>`;
   const painel=state.resOpen&&dados[state.resOpen]!==undefined?`<div class="card"><b>${titulos[state.resOpen]}</b>${dados[state.resOpen].replace(/<button class="s" data-a="tab" data-k="recados">[^<]*<\/button>$/,'')?dados[state.resOpen]:'<p class="note">Nada aqui. 🎉</p>'}</div>`:'';
   const avisoSync=syncPronto()?'':`<div class="alert">Os dados estão só neste aparelho. Em <b>Mais › Configurações</b> conecte o Google Drive para sincronizar com o Douglas.</div>`;
   return avisoSync+monthNav()+tilesH+painel+`<div class="g2">
