@@ -390,7 +390,7 @@ function importarBackup(txt){
 }
 function toast(m){const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:9px 14px;border-radius:9px;z-index:50;font-size:14px';document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
 async function boot(){
-  aplicarTema();loadState();render();setStatus();
+  aplicarTema();loadState();render();setStatus();receberCompartilhado();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(r=>{window._swReg=r}).catch(()=>{});
   /* Atualização automática: confere se há versão nova ao abrir, ao voltar para o app e a cada 10 min */
   let _avisou=false;
@@ -443,7 +443,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-16L1';
+const APP_VER='2026-11-18L1';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -1239,6 +1239,7 @@ const A={
     modal(`<h3>Fatura — ${esc(c.name)}</h3><label class="f">Valor da fatura (R$)</label><input id="fV" inputmode="decimal"><label class="f">Vencimento</label><input id="fT" type="date" value="${base}-${dia}"><label class="f">Situação</label><select id="fS"><option value="pendente">Não paga</option><option value="pago">Paga</option></select><button class="b" id="fOk">Salvar</button> <button class="b g" data-a="close">Cancelar</button>`);
     $('#fOk').onclick=async()=>{const v=num($('#fV').value);if(!v)return toast('Informe o valor');
       await save('tx',{kind:'out',desc:'Fatura '+c.name,amount:v,date:$('#fT').value,status:$('#fS').value,category:'Cartão',cardId:c.id,origin:'cartao',createdAt:new Date().toISOString()});closeModal();render()}},
+  cpIA:()=>cpIA(),cpFat:()=>{closeModal();readCartoes(window._cpFile)},cpManual:()=>prevComprovante({fonte:'manual',valor:0,data:localToday(),fav:'',banco:'',tipo:'Pagamento',dir:'out'},window._cpFile),
   plBanco:d=>{previewImport(d.b,window._plNome,window._plRows,0)},
   saldoEdit:d=>{const c=cfg('saldos'),cur=(c.bancos||{})[d.b]||{};const padrao=(c.padrao||'Caixa')===d.b;
     modal(`<h3>Saldo — ${esc(d.b)}</h3><p class="note">Informe o saldo que aparece no fim do extrato do banco e a data dele.</p><label class="f">Saldo (R$) — use - se estiver negativo</label><input id="sdV" inputmode="decimal" value="${cur.v!=null?String(cur.v).replace('.',','):''}" placeholder="0,00"><label class="f">Data do saldo</label><input id="sdD" type="date" value="${cur.d||localToday()}">
@@ -1341,6 +1342,134 @@ document.addEventListener('change',e=>{
   if(t.dataset.a==='impAll')A.impAll({checked:t.checked});
   if(t.type==='file'&&t.files[0]){const f=t.files[0];const k=t.dataset.a;t.value='';if(k==='conta')readConta(f);if(k==='extrato')readExtrato(f);if(k==='cartoesPdf')readCartoes(f);if(k==='planilha'){window._plBancoSel=null;importarPlanilha(f)}if(k==='planilhaExt'){window._plBancoSel=($('#impBankNew').value.trim()||$('#impBank').value);importarPlanilha(f)}if(k==='backup'){if(/\.(csv|xlsx?)$/i.test(f.name))importarPlanilha(f);else f.text().then(importarBackup).catch(()=>toast('Arquivo inválido'))}}
 });
+/* ===== Recebe arquivos compartilhados de outros aplicativos (Itaú, Caixa…) ===== */
+async function receberCompartilhado(){
+  if(!/[?&]share=1/.test(location.search))return;
+  history.replaceState(null,'',location.pathname);
+  let files=[];
+  try{
+    const c=await caches.open('share-tmp');
+    for(const rq of await c.keys()){const r=await c.match(rq);const b=await r.blob();files.push(new File([b],decodeURIComponent(r.headers.get('x-nome')||'arquivo'),{type:r.headers.get('content-type')||b.type}));await c.delete(rq)}
+  }catch(e){}
+  if(!files.length){toast('Não recebi nenhum arquivo. Tente compartilhar de novo.');return}
+  if(files.length>1)toast('Recebi '+files.length+' arquivos. Vou ler o primeiro; compartilhe os outros um por vez.');
+  tratarArquivo(files[0]);
+}
+async function tratarArquivo(f){
+  const nome=f.name||'arquivo',ext=(nome.split('.').pop()||'').toLowerCase();
+  if(['csv','xlsx','xls'].includes(ext)){window._plBancoSel=null;return importarPlanilha(f)}
+  if(ext==='json'){try{importarBackup(await f.text());render()}catch(e){toast('Não consegui ler o arquivo')}return}
+  if(ext==='ofx'||/ofx/i.test(f.type)){
+    const buf=await f.arrayBuffer();let t=new TextDecoder('utf-8').decode(buf);if(/CHARSET:\s*1252/i.test(t))t=new TextDecoder('windows-1252').decode(buf);
+    const o=parseOfx(t);if(!o.rows.length){toast('Não achei movimentações neste OFX');return}
+    window._plNome=nome;window._plRows=o.rows;const bk={'341':'Itaú','104':'Caixa'}[o.bankid];
+    if(bk)return previewImport(bk,nome,o.rows,0);
+    return modal('<h3>De qual banco é este extrato?</h3><button class="b" data-a="plBanco" data-b="Caixa">Caixa</button> <button class="b" data-a="plBanco" data-b="Itaú">Itaú</button> <button class="b g" data-a="close">Cancelar</button>');
+  }
+  modal('<h3>Lendo o documento…</h3><p>Aguarde um instante.</p>');
+  let txt='';
+  if(!f.type.startsWith('image/')){try{await loadPdfJs();const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;for(let p=1;p<=Math.min(pdf.numPages,6);p++){const c=await(await pdf.getPage(p)).getTextContent();let y=null;c.items.forEach(i=>{const yy=i.transform[5];if(y!==null&&Math.abs(yy-y)>2)txt+='\n';txt+=i.str+' ';y=yy});txt+='\n'}}catch(e){}}
+  const semTexto=txt.replace(/\s/g,'').length<60;
+  if(!semTexto){
+    const datas=(txt.match(/\d{2}\/\d{2}\/\d{4}/g)||[]).length;
+    if(/fatura/i.test(txt)&&/vencimento/i.test(txt)&&!/comprovante/i.test(txt))return naoLi(f,'Parece uma fatura de cartão.','fatura');
+    if(datas>=8&&/saldo/i.test(txt))return naoLi(f,'Parece um extrato com várias linhas.','extrato');
+    const c=lerComprovanteTexto(txt);
+    if(c.valor)return prevComprovante(c,f);
+  }
+  naoLi(f,semTexto?'Este arquivo é uma imagem ou PDF sem texto.':'Não achei o valor do pagamento neste documento.','comprovante');
+}
+function naoLi(f,motivo,tipo){
+  window._cpFile=f;
+  modal(`<h3>Não li sozinho</h3><p>${motivo}</p><p class="note">O app lê sem IA só PDFs de comprovante com texto. Escolha:</p>
+  ${tipo==='fatura'?'<button class="b" data-a="cpFat">Ler como fatura de cartão (IA)</button> ':''}${tipo==='extrato'?'<p class="note">Para extratos, use <b>Extratos</b> › importar (PDF ou planilha).</p>':'<button class="b" data-a="cpIA">Ler com IA</button> '}<button class="b g" data-a="cpManual">Digitar à mão</button> <button class="b g" data-a="close">Cancelar</button>
+  <p class="note">“Ler com IA” envia o documento ao serviço da OpenAI, com a sua chave. Só faça isso se estiver de acordo.</p>`);
+}
+function parseOfx(txt){
+  const bankid=(txt.match(/<BANKID>\s*(\d+)/i)||[])[1]||'';const rows=[];
+  const re=/<STMTTRN>([\s\S]*?)(?=<\/STMTTRN>|<STMTTRN>|<\/BANKTRANLIST>)/gi;let m;
+  while((m=re.exec(txt))){const b=m[1];const g=t=>{const x=b.match(new RegExp('<'+t+'>\\s*([^<\\r\\n]*)','i'));return x?x[1].trim():''};
+    const dt=g('DTPOSTED').slice(0,8);const amt=parseFloat(g('TRNAMT').replace(',','.'));if(dt.length<8||isNaN(amt))continue;
+    rows.push({date:dt.slice(0,4)+'-'+dt.slice(4,6)+'-'+dt.slice(6,8),dir:amt<0?'out':'in',amount:Math.abs(amt),desc:(g('MEMO')||g('NAME')||'Movimentação').replace(/\s+/g,' ')})}
+  return{bankid,rows};
+}
+/* Lê o texto de um comprovante por regras (sem IA). Só preenche o que achou; nunca inventa. */
+function lerComprovanteTexto(t){
+  const s=t.replace(/[ \t]+/g,' ');const c={fonte:'texto',dir:'out'};
+  let m=s.match(/Valor(?: do (?:pix|pagamento|boleto|documento|t[ií]tulo|total))?[^\d\n]{0,25}R\$\s*([\d.]+,\d{2})/i)||s.match(/R\$\s*([\d.]+,\d{2})/);
+  if(m)c.valor=num(m[1]);
+  m=s.match(/(\d{2})\/(\d{2})\/(\d{4})/);if(m)c.data=m[3]+'-'+m[2]+'-'+m[1];
+  c.tipo=/pix/i.test(s)?'Pix':/boleto|c[oó]digo de barras|linha digit/i.test(s)?'Boleto':/transfer[eê]ncia|\bTED\b|\bDOC\b/i.test(s)?'Transferência':'Pagamento';
+  m=s.match(/(?:Favorecido|Recebedor|Benefici[aá]rio|Destinat[aá]rio|Nome do recebedor|Para)\s*[:\n ]\s*([^\n]{3,70})/i);if(m)c.fav=m[1].replace(/\s*(CPF|CNPJ|Ag[eê]ncia|Institui[cç][aã]o).*$/i,'').trim();
+  m=s.match(/(?:ID (?:da )?transa[cç][aã]o|Autentica[cç][aã]o|C[oó]digo de autentica[cç][aã]o|ID E2E|E2E)\s*[:\n ]\s*([A-Za-z0-9.\-]{8,})/i);if(m)c.id=m[1];
+  if(/pix recebido|voc[eê] recebeu|cr[eé]dito em conta/i.test(s)&&!/pix enviado|pagamento/i.test(s))c.dir='in';
+  const iI=s.search(/ita[uú]/i),iC=s.search(/caixa econ|caixa federal|\bcaixa\b/i);
+  c.banco=iI>=0&&(iC<0||iI<iC)?'Itaú':iC>=0?'Caixa':'';
+  return c;
+}
+function prevComprovante(c,f){
+  window._cp={c,f};
+  const bancos=[...new Set(['Itaú','Caixa',...state.imports.map(i=>i.bank).filter(Boolean)])];
+  const falta=k=>c[k]?'':' <span class="chip" style="background:var(--bad);color:#fff">não achei</span>';
+  modal(`<h3>${c.fonte==='ia'?'Lido pela IA':c.fonte==='manual'?'Registrar pagamento':'Comprovante lido'} — confira</h3>
+  <p class="note">${c.tipo||'Pagamento'}${c.id?' · ID '+esc(c.id):''}. Confira e corrija o que estiver errado.</p>
+  <label class="f">Valor (R$)${falta('valor')}</label><input id="cpV" inputmode="decimal" value="${c.valor?c.valor.toFixed(2).replace('.',','):''}">
+  <label class="f">Data${falta('data')}</label><input id="cpD" type="date" value="${c.data||''}">
+  <label class="f">Para quem / descrição${falta('fav')}</label><input id="cpF" value="${esc((c.fav||'')||'')}">
+  <label class="f">Banco${falta('banco')}</label><select id="cpB"><option value="">Escolha…</option>${bancos.map(b=>`<option ${b===c.banco?'selected':''}>${esc(b)}</option>`).join('')}</select>
+  <label class="f">Foi</label><select id="cpDir"><option value="out" ${c.dir!=='in'?'selected':''}>Saída (paguei)</option><option value="in" ${c.dir==='in'?'selected':''}>Entrada (recebi)</option></select>
+  <div id="cpMatch"></div>
+  <button class="b" id="cpGo">Confirmar</button> <button class="b g" data-a="close">Cancelar</button>`);
+  ['cpV','cpD','cpF','cpB','cpDir'].forEach(i=>$('#'+i).addEventListener('input',cpAtualiza));
+  $('#cpGo').onclick=cpConfirma;cpAtualiza();
+}
+function cpLer(){const v=num($('#cpV').value);return{valor:isNaN(v)?0:v,data:$('#cpD').value,fav:$('#cpF').value.trim(),banco:$('#cpB').value,dir:$('#cpDir').value}}
+function cpAchados(r){
+  const out={ext:null,contas:[],dupId:false};
+  const c0=window._cp.c;
+  if(c0.id&&state.tx.some(t=>!t._d&&t.compId===c0.id))out.dupId=true;
+  if(!r.valor||!r.data)return out;
+  out.ext=state.tx.find(t=>t.origin==='extrato'&&live(t)&&!t._d&&(!r.banco||t.bank===r.banco)&&(t.dir||t.kind)===r.dir&&cents(t.amount)===cents(r.valor)&&daysBetween(t.date,r.data)<=1)||null;
+  if(r.dir==='out')out.contas=_contasLivres().filter(b=>cents(b.amount)===cents(r.valor)).sort((a,b)=>(a.status==='pendente'?0:1)-(b.status==='pendente'?0:1)||daysBetween(a.date,r.data)-daysBetween(b.date,r.data));
+  return out;
+}
+function cpAtualiza(){
+  const r=cpLer(),a=cpAchados(r),box=$('#cpMatch');if(!box)return;let h='';
+  if(a.dupId)h+='<p class="alert">Este comprovante (mesmo ID) já foi registrado antes.</p>';
+  if(a.ext)h+=`<p class="note" style="color:var(--ok)">✔ Este pagamento <b>já está no extrato</b> (${fd(a.ext.date)}, ${esc(a.ext.desc)}). Não vou registrar de novo.</p>`;
+  if(a.contas.length)h+=`<label class="f">Esta conta é a que você pagou?</label>`+a.contas.map((b,i)=>`<label style="display:flex;gap:10px;align-items:center;margin:6px 0"><input type="radio" name="cpC" value="${b.id}" ${i===0?'checked':''} style="width:auto;margin:0"><span><b>${esc(b.desc)}</b> · ${brl(b.amount)} · vence ${fd(b.date)} · ${b.status==='pago'?'já paga':'pendente'}</span></label>`).join('')+(a.ext?'':'<label style="display:flex;gap:10px;align-items:center;margin:6px 0"><input type="radio" name="cpC" value="" style="width:auto;margin:0"><span>Nenhuma delas: registrar como nova saída</span></label>');
+  else if(!a.ext&&r.valor)h+='<p class="note">Não achei conta cadastrada com esse valor. Vou registrar como uma saída nova.</p>';
+  box.innerHTML=h;
+  const go=$('#cpGo');if(go){const ok=r.valor>0&&r.data&&(r.banco||(a.contas.length&&r.dir==='out'))&&!a.dupId;go.disabled=!ok&&!a.ext;go.textContent=a.ext&&!a.contas.length?'Entendi':a.contas.length&&(document.querySelector('input[name=cpC]:checked')||{}).value?'Marcar conta como paga':'Registrar saída'}
+  box.querySelectorAll('input[name=cpC]').forEach(i=>i.onchange=cpAtualiza);
+}
+async function cpConfirma(){
+  const r=cpLer(),a=cpAchados(r),c0=window._cp.c,sel=(document.querySelector('input[name=cpC]:checked')||{}).value;
+  if(a.ext&&!a.contas.length){closeModal();return}
+  if(a.dupId){toast('Já registrado');return}
+  const now=new Date().toISOString();
+  if(sel){
+    const b=state.tx.find(t=>t.id===sel);if(!b)return;
+    if(a.ext)await unir(b.id,a.ext.id);
+    else await save('tx',{id:b.id,status:'pago',paidDate:r.data,bank:r.banco||b.bank||'',compId:c0.id||null,viaComprovante:true});
+    closeModal();render();toast('Conta marcada como paga');return;
+  }
+  if(a.ext){closeModal();return}
+  if(!r.banco){toast('Escolha o banco');return}
+  const desc=(c0.tipo&&c0.tipo!=='Pagamento'?c0.tipo+' ':'')+(r.fav||'Pagamento');
+  const own=OWN.test(desc),impId='imp_'+uid();
+  await save('tx',{id:uid(),kind:own?'transfer':r.dir,dir:r.dir,desc,amount:r.valor,date:r.data,status:'pago',category:own?'Transferência':autoCat(desc,r.dir),bank:r.banco,origin:'extrato',importId:impId,createdAt:now,compId:c0.id||null,viaComprovante:true});
+  await save('imports',{id:impId,bank:r.banco,fileName:'Comprovante '+(window._cp.f?window._cp.f.name:''),createdAt:now,added:1,skipped:0});
+  closeModal();render();toast('Saída registrada. Dá para desfazer em Extratos › Importações feitas');
+}
+async function cpIA(){
+  const f=window._cpFile;modal('<h3>Lendo com IA…</h3><p>Aguarde.</p>');
+  try{
+    const r=await askClaude('Este documento é um comprovante de pagamento ou transferência bancária brasileira. Responda SOMENTE JSON: {"valor":número em reais ou null,"data":"YYYY-MM-DD" ou null,"favorecido":"nome de quem recebeu" ou null,"banco":"Itaú" ou "Caixa" ou null (banco de onde saiu o dinheiro),"tipo":"Pix"|"Boleto"|"Transferência"|"Pagamento","id":"ID/autenticação" ou null,"direcao":"saida"|"entrada"}. Não invente: use null quando não estiver escrito.',f);
+    prevComprovante({fonte:'ia',valor:r.valor?+r.valor:0,data:r.data||'',fav:r.favorecido||'',banco:r.banco||'',tipo:r.tipo||'Pagamento',id:r.id||'',dir:r.direcao==='entrada'?'in':'out'},f);
+  }catch(e){modal('<h3>Não consegui ler</h3><p>'+erroLeitura(e)+'</p><button class="b g" data-a="close">Fechar</button>')}
+}
+
 boot();
 </script>
 </body>

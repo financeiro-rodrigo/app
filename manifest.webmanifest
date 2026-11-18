@@ -29,5 +29,33 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/app/?share=1",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "files": [
+        {
+          "name": "arquivos",
+          "accept": [
+            "application/pdf",
+            "image/*",
+            "text/csv",
+            ".csv",
+            ".xlsx",
+            ".xls",
+            ".ofx",
+            "application/x-ofx",
+            "text/plain",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/octet-stream"
+          ]
+        }
+      ]
+    }
+  }
 }
