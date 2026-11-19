@@ -443,7 +443,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-18L2';
+const APP_VER='2026-11-18L3';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -508,7 +508,7 @@ function vResumo(){
   const abertos=state.notes.filter(n=>!n.done).sort((x,y)=>((x.due||'9999').localeCompare(y.due||'9999'))||(y.createdAt||'').localeCompare(x.createdAt||''));
   const quick=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0"><button class="b" data-a="new" data-kind="out" data-pend="1">+ Conta a pagar</button></div>`;
   const lin=(t,btn)=>`<div class="row"><div class="rl"><b>${esc(t.desc)}</b><small>vence ${fd(t.date).slice(0,5)}${t.dono&&t.dono!=='Casa'?' · '+esc(t.dono):''}</small></div><div class="rr pend">${vtxt(t)}<div>${btn}</div></div></div>`;
-  const pagar=t=>`<button class="s" data-a="toggle" data-id="${t.id}">Marcar paga</button>`;
+  const pagar=t=>`<button class="s" data-a="toggle" data-id="${t.id}">Marcar paga</button><button class="s d" data-a="del" data-id="${t.id}">Excluir</button>`;
   const informar=t=>`<button class="s" data-a="edit" data-id="${t.id}">Informar valor</button>`;
   const recRows=abertos.map(n=>`<div class="row"><div class="rl"><b>${esc(n.text)}</b><small>${esc(n.from)} → ${esc(n.to)}${n.due?' · lembrar em '+fd(n.due).slice(0,5)+(n.due<t0?' <span class="out">(passou)</span>':''):''}${noteForMe(n)?' · <span class="pend">para você</span>':''}</small></div><div class="rr"><a class="s wa" href="${waUrl('Recado de '+n.from+': '+n.text,n.to==='Os dois'?(ME?outroDe(ME):''):n.to)}" target="_blank" rel="noopener">WhatsApp</a><button class="s" data-a="noteDone" data-id="${n.id}">Resolvido ✓</button></div></div>`).join('');
   const dados={rec:recRows+`<button class="s" data-a="tab" data-k="recados">+ Novo recado</button>`,venc:vencidas.map(t=>lin(t,pagar(t))).join(''),p7:prox7.map(t=>lin(t,pagar(t))).join(''),inf:ainfo.map(t=>lin(t,informar(t))).join('')};
