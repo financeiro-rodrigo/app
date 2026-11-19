@@ -443,7 +443,7 @@ const vtxt=t=>t.amount?brl(t.amount):'a informar';
 const lastDay=mes=>{const[y,m]=mes.split('-').map(Number);return new Date(y,m,0).getDate()};
 const dueDate=(mes,dia)=>mes+'-'+String(Math.min(Math.max(+dia||28,1),lastDay(mes))).padStart(2,'0');
 const contasDoMes=()=>state.tx.filter(t=>t.kind==='out'&&t.origin!=='extrato'&&!t.cardId&&live(t)&&(t.date||'').slice(0,7)===state.month);
-const APP_VER='2026-11-18L1';
+const APP_VER='2026-11-18L2';
 const IC={
 home:'<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>',
 doc:'<path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/>',
@@ -1070,6 +1070,9 @@ function previewImport(bank,fileName,rows,nCorr){
   state.tx.filter(t=>t.origin==='extrato'&&t.bank===bank).forEach(t=>{const k=[t.date,t.dir||t.kind,cents(t.amount)].join('|');have[k]=(have[k]||0)+1});
   const seen={};
   rows.forEach(r=>{const k=[r.date,r.dir,cents(r.amount)].join('|');seen[k]=(seen[k]||0)+1;r.isNew=seen[k]>(have[k]||0);r.own=OWN.test(r.desc);r.cat=autoCat(r.desc,r.dir)});
+  /* Pix já registrado por comprovante: o banco às vezes lança no dia seguinte; tolera 1 dia para não duplicar */
+  const _comp=state.tx.filter(t=>t.viaComprovante&&t.origin==='extrato'&&live(t)&&t.bank===bank),_usC=new Set();
+  rows.forEach(r=>{if(!r.isNew)return;const c=_comp.find(t=>!_usC.has(t.id)&&(t.dir||t.kind)===r.dir&&cents(t.amount)===cents(r.amount)&&t.date!==r.date&&daysBetween(t.date,r.date)<=1);if(c){_usC.add(c.id);r.isNew=false}});
   const usadosPar=new Set();
   rows.forEach(r=>{if(!r.isNew||r.own)return;const par=state.tx.find(t=>t.origin==='extrato'&&live(t)&&t.bank&&t.bank!==bank&&(t.kind==='in'||t.kind==='out')&&(t.dir||t.kind)!==r.dir&&!usadosPar.has(t.id)&&cents(t.amount)===cents(r.amount)&&daysBetween(t.date,r.date)<=2);if(par){usadosPar.add(par.id);r.own=true;r.pair=par.id;r.parInfo=par.bank+' · '+fd(par.date).slice(0,5)}});
   window._imp={bank,fileName,rows};
